@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum WalletTransactionType {
+  CREDIT
+  DEBIT
+}
+
+enum WalletTransactionReason {
+  WALLET_CREATED
+  BET_RESERVED
+  BET_REJECTED
+  CASHOUT_PAYOUT
+  ROUND_REFUND
+  MANUAL_ADJUSTMENT
+}
+
+model Wallet {
+  id             String              @id @default(cuid())
+  playerId       String              @unique
+  balanceInCents BigInt              @default(0)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  transactions   WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id                  String                  @id @default(cuid())
+  walletId            String
+  amountInCents       BigInt
+  balanceAfterInCents BigInt
+  type                WalletTransactionType
+  reason              WalletTransactionReason
+  correlationId       String?                 @unique
+  externalReference   String?
+  metadata            Json?
+  createdAt           DateTime                @default(now())
+  wallet              Wallet                  @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId, createdAt])
+  @@index([externalReference])
+  @@map("wallet_transactions")
+}
