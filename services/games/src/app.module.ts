@@ -1,8 +1,10 @@
 import { Module } from "@nestjs/common";
+import { CrashCurrentRoundUseCase } from "./application/use-cases/crash-current-round.use-case";
 import { CreateRoundUseCase } from "./application/use-cases/create-round.use-case";
 import { GetCurrentRoundUseCase } from "./application/use-cases/get-current-round.use-case";
 import { GetMyCurrentBetUseCase } from "./application/use-cases/get-my-current-bet.use-case";
 import { PlaceBetUseCase } from "./application/use-cases/place-bet.use-case";
+import { StartCurrentRoundUseCase } from "./application/use-cases/start-current-round.use-case";
 import { BET_REPOSITORY } from "./domain/bets/bet.repository";
 import { ROUND_REPOSITORY } from "./domain/rounds/round.repository";
 import { PrismaBetRepository } from "./infrastructure/bets/prisma-bet.repository";
@@ -17,10 +19,12 @@ import { RoundsController } from "./presentation/controllers/rounds.controller";
   controllers: [GamesController, InternalRoundsController, RoundsController, BetsController],
   providers: [
     PrismaService,
+    CrashCurrentRoundUseCase,
     CreateRoundUseCase,
     GetCurrentRoundUseCase,
     PlaceBetUseCase,
     GetMyCurrentBetUseCase,
+    StartCurrentRoundUseCase,
     {
       provide: ROUND_REPOSITORY,
       useClass: PrismaRoundRepository,

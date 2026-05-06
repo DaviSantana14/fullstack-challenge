@@ -32,4 +32,19 @@ export class PrismaBetRepository implements BetRepository {
       },
     });
   }
+
+  async markAcceptedBetsAsLost(roundId: string, settledAt: Date): Promise<number> {
+    const result = await this.prisma.bet.updateMany({
+      where: {
+        roundId,
+        status: "ACCEPTED",
+      },
+      data: {
+        status: "LOST",
+        settledAt,
+      },
+    });
+
+    return result.count;
+  }
 }

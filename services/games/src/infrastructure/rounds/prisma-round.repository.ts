@@ -14,6 +14,17 @@ export class PrismaRoundRepository implements RoundRepository {
     });
   }
 
+  async findCurrentActiveRound(): Promise<RoundRecord | null> {
+    return this.prisma.round.findFirst({
+      where: {
+        status: {
+          in: ["BETTING", "IN_PROGRESS"],
+        },
+      },
+      orderBy: [{ roundNumber: "desc" }],
+    });
+  }
+
   async getNextRoundNumber(): Promise<number> {
     const result = await this.prisma.round.aggregate({
       _max: { roundNumber: true },
@@ -31,6 +42,31 @@ export class PrismaRoundRepository implements RoundRepository {
         serverSeedHash: input.serverSeedHash,
         bettingStartsAt: input.bettingStartsAt,
         bettingClosesAt: input.bettingClosesAt,
+      },
+    });
+  }
+
+  async startRound(roundId: string, startedAt: Date): Promise<RoundRecord> {
+    return this.prisma.round.update({
+      where: { id: roundId },
+      data: {
+        status: "IN_PROGRESS",
+        startedAt,
+      },
+    });
+  }
+
+  async crashRound(
+    roundId: string,
+    crashPointHundredths: number,
+    crashedAt: Date,
+  ): Promise<RoundRecord> {
+    return this.prisma.round.update({
+      where: { id: roundId },
+      data: {
+        status: "CRASHED",
+        crashPointHundredths,
+        crashedAt,
       },
     });
   }

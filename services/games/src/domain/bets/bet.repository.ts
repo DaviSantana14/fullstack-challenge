@@ -11,4 +11,5 @@ export interface CreateAcceptedBetInput {
 export interface BetRepository {
   findByRoundIdAndPlayerId(roundId: string, playerId: string): Promise<BetRecord | null>;
   createAcceptedBet(input: CreateAcceptedBetInput): Promise<BetRecord>;
+  markAcceptedBetsAsLost(roundId: string, settledAt: Date): Promise<number>;
 }

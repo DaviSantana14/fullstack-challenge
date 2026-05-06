@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Inject, Injectable } from "@nestjs/common";
 import {
   ROUND_REPOSITORY,
   type RoundRepository,
@@ -6,19 +6,19 @@ import {
 import type { RoundRecord } from "../../domain/rounds/round.types";
 
 @Injectable()
-export class GetCurrentRoundUseCase {
+export class StartCurrentRoundUseCase {
   constructor(
     @Inject(ROUND_REPOSITORY)
     private readonly roundRepository: RoundRepository,
   ) {}
 
   async execute(): Promise<RoundRecord> {
-    const round = await this.roundRepository.findCurrentActiveRound();
+    const round = await this.roundRepository.findCurrentBettingRound();
 
     if (!round) {
-      throw new NotFoundException("No active round was found.");
+      throw new ConflictException("No betting round is available to start.");
     }
 
-    return round;
+    return this.roundRepository.startRound(round.id, new Date());
   }
 }

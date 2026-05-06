@@ -19,10 +19,10 @@ export class GetMyCurrentBetUseCase {
   ) {}
 
   async execute(playerId: string): Promise<BetRecord> {
-    const round = await this.roundRepository.findCurrentBettingRound();
+    const round = await this.roundRepository.findCurrentActiveRound();
 
     if (!round) {
-      throw new NotFoundException("No active betting round was found.");
+      throw new NotFoundException("No active round was found.");
     }
 
     const bet = await this.betRepository.findByRoundIdAndPlayerId(round.id, playerId);

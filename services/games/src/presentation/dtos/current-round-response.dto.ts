@@ -5,6 +5,8 @@ export class CurrentRoundResponseDto {
   roundNumber: number;
   status: string;
   serverSeedHash: string;
+  serverSeed: string | null;
+  crashPointHundredths: number | null;
   bettingStartsAt: string;
   bettingClosesAt: string;
   startedAt: string | null;
@@ -19,6 +21,8 @@ export class CurrentRoundResponseDto {
       roundNumber: round.roundNumber,
       status: round.status,
       serverSeedHash: round.serverSeedHash,
+      serverSeed: round.status === "CRASHED" ? round.serverSeed : null,
+      crashPointHundredths: round.crashPointHundredths,
       bettingStartsAt: round.bettingStartsAt.toISOString(),
       bettingClosesAt: round.bettingClosesAt.toISOString(),
       startedAt: round.startedAt?.toISOString() ?? null,
