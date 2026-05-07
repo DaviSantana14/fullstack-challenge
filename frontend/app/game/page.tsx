@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getPlayerId } from "@/lib/auth";
+import { apiPost } from "@/lib/api";
 import { useGameState } from "@/hooks/useGameState";
 import { GamePanel } from "@/components/GamePanel";
 import { BetControls } from "@/components/BetControls";
@@ -68,7 +69,28 @@ export default function GamePage() {
       });
       toast.success("Saldo adicionado com sucesso.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao adicionar saldo.");
+      const message = error instanceof Error ? error.message : "Erro ao adicionar saldo.";
+
+      if (message === "Wallet not found for this player.") {
+        try {
+          await apiPost("/wallets");
+          await fundWallet({
+            playerId,
+            amountInCents: devFundAmount,
+          });
+          toast.success("Wallet criada e saldo adicionado com sucesso.");
+          return;
+        } catch (retryError) {
+          toast.error(
+            retryError instanceof Error
+              ? retryError.message
+              : "Erro ao criar wallet e adicionar saldo.",
+          );
+          return;
+        }
+      }
+
+      toast.error(message);
     }
   }
 

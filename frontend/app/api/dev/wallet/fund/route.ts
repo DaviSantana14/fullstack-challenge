@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const INTERNAL_WALLETS_BASE_URL =
   process.env.INTERNAL_WALLETS_BASE_URL ?? "http://wallets:4002";
 const INTERNAL_API_TOKEN = process.env.INTERNAL_API_TOKEN ?? "dev-internal-token";
-const ENABLE_DEV_TOOLS = process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS === "true";
+const ENABLE_DEV_TOOLS = process.env.ENABLE_DEV_TOOLS === "true";
 
 export async function POST(request: NextRequest) {
   if (!ENABLE_DEV_TOOLS) {
