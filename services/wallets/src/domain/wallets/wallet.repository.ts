@@ -10,6 +10,7 @@ export const WALLET_REPOSITORY = Symbol("WALLET_REPOSITORY");
 export interface WalletRepository {
   findByPlayerId(playerId: string): Promise<WalletRecord | null>;
   createForPlayer(playerId: string): Promise<WalletRecord>;
+  creditManualAdjustment(playerId: string, amountInCents: bigint): Promise<WalletRecord | null>;
   findTransactionByCorrelationId(correlationId: string): Promise<WalletTransactionRecord | null>;
   debitForBet(
     playerId: string,

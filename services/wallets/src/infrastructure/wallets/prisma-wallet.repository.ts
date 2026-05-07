@@ -40,6 +40,49 @@ export class PrismaWalletRepository implements WalletRepository {
     });
   }
 
+  async creditManualAdjustment(
+    playerId: string,
+    amountInCents: bigint,
+  ): Promise<WalletRecord | null> {
+    const wallet = await this.findByPlayerId(playerId);
+
+    if (!wallet) {
+      return null;
+    }
+
+    await this.prisma.$executeRaw(Prisma.sql`
+      WITH updated_wallet AS (
+        UPDATE wallets
+        SET "balanceInCents" = "balanceInCents" + ${amountInCents},
+            "updatedAt" = NOW()
+        WHERE "playerId" = ${playerId}
+        RETURNING id, "balanceInCents"
+      )
+      INSERT INTO wallet_transactions (
+        id,
+        "walletId",
+        "amountInCents",
+        "balanceAfterInCents",
+        type,
+        reason,
+        metadata,
+        "createdAt"
+      )
+      SELECT
+        ${randomUUID()},
+        uw.id,
+        ${amountInCents},
+        uw."balanceInCents",
+        'CREDIT'::"WalletTransactionType",
+        'MANUAL_ADJUSTMENT'::"WalletTransactionReason",
+        NULL,
+        NOW()
+      FROM updated_wallet uw
+    `);
+
+    return this.findByPlayerId(playerId);
+  }
+
   async findTransactionByCorrelationId(
     correlationId: string,
   ): Promise<WalletTransactionRecord | null> {

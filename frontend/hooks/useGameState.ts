@@ -86,6 +86,29 @@ export function useGameState() {
     },
   });
 
+  const fundWalletMutation = useMutation({
+    mutationFn: async (input: { playerId: string; amountInCents: string }) => {
+      const response = await fetch("/api/dev/wallet/fund", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(input),
+      });
+
+      const payload = await response.json().catch(() => ({ message: "Unknown error" }));
+
+      if (!response.ok) {
+        throw new Error(payload.message || `HTTP ${response.status}`);
+      }
+
+      return payload;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+    },
+  });
+
   const canBet =
     round?.status === "BETTING" &&
     (!myBet || myBet.status === "REJECTED" || myBet.status === "LOST");
@@ -111,8 +134,10 @@ export function useGameState() {
     isPending,
     placeBet: placeBetMutation.mutate,
     cashout: cashoutMutation.mutate,
+    fundWallet: fundWalletMutation.mutateAsync,
     isPlacingBet: placeBetMutation.isPending,
     isCashingOut: cashoutMutation.isPending,
+    isFundingWallet: fundWalletMutation.isPending,
   };
 }
 

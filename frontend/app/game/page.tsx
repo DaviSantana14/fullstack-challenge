@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getPlayerId } from "@/lib/auth";
 import { useGameState } from "@/hooks/useGameState";
@@ -12,6 +12,8 @@ import { toast } from "sonner";
 
 export default function GamePage() {
   const router = useRouter();
+  const [devFundAmount, setDevFundAmount] = useState("1000");
+  const showDevTools = process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS === "true";
 
   useEffect(() => {
     if (!getPlayerId()) {
@@ -32,8 +34,10 @@ export default function GamePage() {
     isPending,
     placeBet,
     cashout,
+    fundWallet,
     isPlacingBet,
     isCashingOut,
+    isFundingWallet,
   } = useGameState();
 
   // Toast notifications for bet status changes
@@ -48,6 +52,25 @@ export default function GamePage() {
       toast.error("A rodada crashou! Aposta perdida.");
     }
   }, [myBet?.status, myBet?.payoutInCents]);
+
+  async function handleDevFund() {
+    const playerId = getPlayerId();
+
+    if (!playerId) {
+      toast.error("Jogador não identificado.");
+      return;
+    }
+
+    try {
+      await fundWallet({
+        playerId,
+        amountInCents: devFundAmount,
+      });
+      toast.success("Saldo adicionado com sucesso.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao adicionar saldo.");
+    }
+  }
 
   return (
     <main className="flex min-h-screen flex-col bg-[#0a0a0a] text-white">
@@ -147,6 +170,33 @@ export default function GamePage() {
                 Payout: R$ {(parseInt(myBet.payoutInCents) / 100).toFixed(2)}
               </div>
             )}
+          </div>
+        )}
+
+        {showDevTools && (
+          <div className="mt-4 rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 p-4">
+            <div className="mb-3 text-sm font-semibold text-amber-300">Dev tools</div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                type="number"
+                min="1"
+                value={devFundAmount}
+                onChange={(e) => setDevFundAmount(e.target.value)}
+                className="flex-1 rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50"
+                placeholder="amountInCents"
+              />
+              <button
+                type="button"
+                onClick={handleDevFund}
+                disabled={isFundingWallet}
+                className="rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-amber-400 disabled:opacity-50"
+              >
+                {isFundingWallet ? "Adicionando..." : "Adicionar saldo"}
+              </button>
+            </div>
+            <div className="mt-2 text-xs text-neutral-500">
+              Valor em centavos. Ex.: 1000 = R$ 10,00
+            </div>
           </div>
         )}
       </div>
