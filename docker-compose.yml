@@ -162,6 +162,7 @@ services:
       - "3000:3000"
     environment:
       ENABLE_DEV_TOOLS: "true"
+      INTERNAL_GAMES_BASE_URL: http://games:4001
       INTERNAL_WALLETS_BASE_URL: http://wallets:4002
       INTERNAL_API_TOKEN: dev-internal-token
     depends_on:

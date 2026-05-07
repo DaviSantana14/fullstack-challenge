@@ -36,9 +36,15 @@ export default function GamePage() {
     placeBet,
     cashout,
     fundWallet,
+    createRound,
+    startRound,
+    crashRound,
     isPlacingBet,
     isCashingOut,
     isFundingWallet,
+    isCreatingRound,
+    isStartingRound,
+    isCrashingRound,
   } = useGameState();
 
   // Toast notifications for bet status changes
@@ -94,6 +100,58 @@ export default function GamePage() {
     }
   }
 
+  async function handleCreateRound() {
+    try {
+      await createRound();
+      toast.success("Round criada.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao criar round.");
+    }
+  }
+
+  async function handleStartRound() {
+    try {
+      await startRound();
+      toast.success("Round iniciada.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao iniciar round.");
+    }
+  }
+
+  async function handleCrashRound() {
+    try {
+      await crashRound();
+      toast.success("Round crashada.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao crashar round.");
+    }
+  }
+
+  const roundStatusLabel =
+    !round
+      ? "Sem rodada ativa"
+      : round.status === "BETTING"
+      ? "Aceitando apostas"
+      : round.status === "IN_PROGRESS"
+      ? "Em andamento"
+      : round.status === "CRASHED"
+      ? "Crashou"
+      : "Status desconhecido";
+
+  const roundStatusColor =
+    round?.status === "BETTING"
+      ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+      : round?.status === "IN_PROGRESS"
+      ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+      : round?.status === "CRASHED"
+      ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
+      : "bg-white/5 text-neutral-300 border-white/10";
+
+  const canCreateRound = !round || round.status === "CRASHED";
+  const canStartRound = round?.status === "BETTING";
+  const canCrashRound = round?.status === "IN_PROGRESS";
+  const isRoundActionPending = isCreatingRound || isStartingRound || isCrashingRound;
+
   return (
     <main className="flex min-h-screen flex-col bg-[#0a0a0a] text-white">
       {/* Header */}
@@ -118,6 +176,35 @@ export default function GamePage() {
             status={round?.status ?? null}
             crashPoint={round?.crashPointHundredths ?? null}
           />
+        </div>
+
+        <div className="mb-4 rounded-2xl border border-white/10 bg-black/40 p-4 backdrop-blur">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-xs uppercase tracking-wider text-neutral-500">Rodada atual</div>
+              <div className="mt-1 text-lg font-semibold text-white">
+                {round ? `#${round.roundNumber}` : "Nenhuma rodada ativa"}
+              </div>
+            </div>
+            <div className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${roundStatusColor}`}>
+              {roundStatusLabel}
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl bg-white/5 p-3">
+              <div className="text-xs text-neutral-500">Pode apostar?</div>
+              <div className="mt-1 text-sm font-semibold text-white">{canBet ? "Sim" : "Não"}</div>
+            </div>
+            <div className="rounded-xl bg-white/5 p-3">
+              <div className="text-xs text-neutral-500">Pode cashout?</div>
+              <div className="mt-1 text-sm font-semibold text-white">{canCashout ? "Sim" : "Não"}</div>
+            </div>
+            <div className="rounded-xl bg-white/5 p-3">
+              <div className="text-xs text-neutral-500">Sua bet</div>
+              <div className="mt-1 text-sm font-semibold text-white">{myBet?.status ?? "Nenhuma"}</div>
+            </div>
+          </div>
         </div>
 
         {/* Seed hash display */}
@@ -198,6 +285,32 @@ export default function GamePage() {
         {showDevTools && (
           <div className="mt-4 rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 p-4">
             <div className="mb-3 text-sm font-semibold text-amber-300">Dev tools</div>
+            <div className="mb-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleCreateRound}
+                disabled={isRoundActionPending || !canCreateRound}
+                className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-sky-500 disabled:opacity-50"
+              >
+                {isCreatingRound ? "Criando..." : "Criar round"}
+              </button>
+              <button
+                type="button"
+                onClick={handleStartRound}
+                disabled={isRoundActionPending || !canStartRound}
+                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {isStartingRound ? "Iniciando..." : "Iniciar round"}
+              </button>
+              <button
+                type="button"
+                onClick={handleCrashRound}
+                disabled={isRoundActionPending || !canCrashRound}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-rose-500 disabled:opacity-50"
+              >
+                {isCrashingRound ? "Crashando..." : "Crashar round"}
+              </button>
+            </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <input
                 type="number"

@@ -56,6 +56,19 @@ export function useGameState() {
   const queryClient = useQueryClient();
   const [betAmount, setBetAmount] = useState<string>("250");
 
+  async function refreshGameState(options?: { wallet?: boolean; history?: boolean }) {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["round", "current"], exact: true }),
+      queryClient.invalidateQueries({ queryKey: ["bet", "current"], exact: true }),
+      options?.wallet
+        ? queryClient.invalidateQueries({ queryKey: ["wallet"], exact: true })
+        : Promise.resolve(),
+      options?.history
+        ? queryClient.invalidateQueries({ queryKey: ["rounds", "history"], exact: true })
+        : Promise.resolve(),
+    ]);
+  }
+
   // WebSocket for real-time updates
   useWebSocket();
 
@@ -72,17 +85,15 @@ export function useGameState() {
   const placeBetMutation = useMutation({
     mutationFn: (amountInCents: string) =>
       apiPost<Bet>("/games/bets", { amountInCents }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bet", "current"] });
-      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+    onSuccess: async () => {
+      await refreshGameState({ wallet: true });
     },
   });
 
   const cashoutMutation = useMutation({
     mutationFn: () => apiPost<Bet>("/games/bets/me/current/cashout", {}),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bet", "current"] });
-      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+    onSuccess: async () => {
+      await refreshGameState({ wallet: true });
     },
   });
 
@@ -104,8 +115,50 @@ export function useGameState() {
 
       return payload;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+    onSuccess: async () => {
+      await refreshGameState({ wallet: true });
+    },
+  });
+
+  const createRoundMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/dev/rounds/create", { method: "POST" });
+      const payload = await response.json().catch(() => ({ message: "Unknown error" }));
+      if (!response.ok) {
+        throw new Error(payload.message || `HTTP ${response.status}`);
+      }
+      return payload;
+    },
+    onSuccess: async () => {
+      await refreshGameState({ history: true });
+    },
+  });
+
+  const startRoundMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/dev/rounds/start", { method: "POST" });
+      const payload = await response.json().catch(() => ({ message: "Unknown error" }));
+      if (!response.ok) {
+        throw new Error(payload.message || `HTTP ${response.status}`);
+      }
+      return payload;
+    },
+    onSuccess: async () => {
+      await refreshGameState();
+    },
+  });
+
+  const crashRoundMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/dev/rounds/crash", { method: "POST" });
+      const payload = await response.json().catch(() => ({ message: "Unknown error" }));
+      if (!response.ok) {
+        throw new Error(payload.message || `HTTP ${response.status}`);
+      }
+      return payload;
+    },
+    onSuccess: async () => {
+      await refreshGameState({ wallet: true, history: true });
     },
   });
 
@@ -135,9 +188,15 @@ export function useGameState() {
     placeBet: placeBetMutation.mutate,
     cashout: cashoutMutation.mutate,
     fundWallet: fundWalletMutation.mutateAsync,
+    createRound: createRoundMutation.mutateAsync,
+    startRound: startRoundMutation.mutateAsync,
+    crashRound: crashRoundMutation.mutateAsync,
     isPlacingBet: placeBetMutation.isPending,
     isCashingOut: cashoutMutation.isPending,
     isFundingWallet: fundWalletMutation.isPending,
+    isCreatingRound: createRoundMutation.isPending,
+    isStartingRound: startRoundMutation.isPending,
+    isCrashingRound: crashRoundMutation.isPending,
   };
 }
 
