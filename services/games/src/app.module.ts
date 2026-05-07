@@ -1,12 +1,15 @@
 import { Module } from "@nestjs/common";
 import { ClientsModule, Transport } from "@nestjs/microservices";
+import { GameEventsService } from "./application/events/game-events.service";
 import { CashoutCurrentBetUseCase } from "./application/use-cases/cashout-current-bet.use-case";
 import { CrashCurrentRoundUseCase } from "./application/use-cases/crash-current-round.use-case";
 import { CreateRoundUseCase } from "./application/use-cases/create-round.use-case";
 import { GetCurrentRoundUseCase } from "./application/use-cases/get-current-round.use-case";
 import { GetMyCurrentBetUseCase } from "./application/use-cases/get-my-current-bet.use-case";
 import { PlaceBetUseCase } from "./application/use-cases/place-bet.use-case";
+import { GetRoundHistoryUseCase } from "./application/use-cases/get-round-history.use-case";
 import { StartCurrentRoundUseCase } from "./application/use-cases/start-current-round.use-case";
+import { VerifyRoundUseCase } from "./application/use-cases/verify-round.use-case";
 import { BET_REPOSITORY } from "./domain/bets/bet.repository";
 import { ROUND_REPOSITORY } from "./domain/rounds/round.repository";
 import { PrismaBetRepository } from "./infrastructure/bets/prisma-bet.repository";
@@ -19,6 +22,7 @@ import { BetsController } from "./presentation/controllers/bets.controller";
 import { GamesController } from "./presentation/controllers/games.controller";
 import { InternalRoundsController } from "./presentation/controllers/internal-rounds.controller";
 import { RoundsController } from "./presentation/controllers/rounds.controller";
+import { GameGateway } from "./presentation/gateways/game.gateway";
 
 @Module({
   imports: [
@@ -43,16 +47,20 @@ import { RoundsController } from "./presentation/controllers/rounds.controller";
     BetsController,
     WalletCreditResultConsumer,
     WalletDebitResultConsumer,
+    GameGateway,
   ],
   providers: [
     PrismaService,
+    GameEventsService,
     CashoutCurrentBetUseCase,
     CrashCurrentRoundUseCase,
     CreateRoundUseCase,
     GetCurrentRoundUseCase,
     PlaceBetUseCase,
     GetMyCurrentBetUseCase,
+    GetRoundHistoryUseCase,
     StartCurrentRoundUseCase,
+    VerifyRoundUseCase,
     {
       provide: ROUND_REPOSITORY,
       useClass: PrismaRoundRepository,

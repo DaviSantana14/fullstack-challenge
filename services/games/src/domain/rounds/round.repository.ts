@@ -18,4 +18,5 @@ export interface RoundRepository {
   createBettingRound(input: CreateRoundInput): Promise<RoundRecord>;
   startRound(roundId: string, startedAt: Date): Promise<RoundRecord>;
   crashRound(roundId: string, crashPointHundredths: number, crashedAt: Date): Promise<RoundRecord>;
+  findHistory(limit: number): Promise<RoundRecord[]>;
 }

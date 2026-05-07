@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Inject, Injectable } from "@nestjs/common";
+import { GameEventsService } from "../events/game-events.service";
 import {
   BET_REPOSITORY,
   type BetRepository,
@@ -16,6 +17,7 @@ export class CrashCurrentRoundUseCase {
     private readonly roundRepository: RoundRepository,
     @Inject(BET_REPOSITORY)
     private readonly betRepository: BetRepository,
+    private readonly gameEvents: GameEventsService,
   ) {}
 
   async execute(crashPointHundredthsInput: number): Promise<RoundRecord> {
@@ -39,6 +41,11 @@ export class CrashCurrentRoundUseCase {
     );
 
     await this.betRepository.markAcceptedBetsAsLost(round.id, crashedAt);
+
+    this.gameEvents.emit("round:crashed", {
+      round: crashedRound,
+      serverTime: new Date().toISOString(),
+    });
 
     return crashedRound;
   }

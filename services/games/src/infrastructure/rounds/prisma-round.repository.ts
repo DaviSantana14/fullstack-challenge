@@ -76,4 +76,12 @@ export class PrismaRoundRepository implements RoundRepository {
       },
     });
   }
+
+  async findHistory(limit: number): Promise<RoundRecord[]> {
+    return this.prisma.round.findMany({
+      where: { status: "CRASHED" },
+      orderBy: [{ roundNumber: "desc" }],
+      take: limit,
+    });
+  }
 }

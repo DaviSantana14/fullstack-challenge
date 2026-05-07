@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "sonner";
+import { Providers } from "./providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Crash Game",
-  description: "Frontend base do desafio fullstack de crash game.",
+  description: "Jogo de crash multiplayer em tempo real.",
 };
 
 export default function RootLayout({
@@ -24,11 +26,14 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="pt-BR"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-neutral-950 text-neutral-100">
-        {children}
+        <Providers>
+          {children}
+          <Toaster position="top-center" theme="dark" />
+        </Providers>
       </body>
     </html>
   );

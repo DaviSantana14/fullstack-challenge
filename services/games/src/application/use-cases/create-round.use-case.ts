@@ -1,5 +1,6 @@
 import { ConflictException, Inject, Injectable } from "@nestjs/common";
 import { Prisma } from "../../../generated/prisma/client";
+import { GameEventsService } from "../events/game-events.service";
 import {
   ROUND_REPOSITORY,
   type RoundRepository,
@@ -12,6 +13,7 @@ export class CreateRoundUseCase {
   constructor(
     @Inject(ROUND_REPOSITORY)
     private readonly roundRepository: RoundRepository,
+    private readonly gameEvents: GameEventsService,
   ) {}
 
   async execute(): Promise<RoundRecord> {
@@ -28,13 +30,20 @@ export class CreateRoundUseCase {
     const bettingClosesAt = new Date(now.getTime() + 30_000);
 
     try {
-      return await this.roundRepository.createBettingRound({
+      const round = await this.roundRepository.createBettingRound({
         roundNumber,
         serverSeed,
         serverSeedHash,
         bettingStartsAt: now,
         bettingClosesAt,
       });
+
+      this.gameEvents.emit("round:betting_started", {
+        round,
+        serverTime: new Date().toISOString(),
+      });
+
+      return round;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

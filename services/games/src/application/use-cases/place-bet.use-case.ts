@@ -8,6 +8,7 @@ import type { ClientProxy } from "@nestjs/microservices";
 import { Prisma } from "../../../generated/prisma/client";
 import { randomUUID } from "crypto";
 import { firstValueFrom, timeout } from "rxjs";
+import { GameEventsService } from "../events/game-events.service";
 import {
   BET_REPOSITORY,
   type BetRepository,
@@ -33,6 +34,7 @@ export class PlaceBetUseCase {
     private readonly betRepository: BetRepository,
     @Inject(WALLETS_RMQ_CLIENT)
     private readonly walletsClient: ClientProxy,
+    private readonly gameEvents: GameEventsService,
   ) {}
 
   async execute(playerId: string, amountInCentsInput: string): Promise<BetRecord> {
@@ -97,6 +99,7 @@ export class PlaceBetUseCase {
         );
 
         if (acceptedBet?.status === "ACCEPTED") {
+          this.gameEvents.emit("bet:placed", { bet: acceptedBet });
           return acceptedBet;
         }
 

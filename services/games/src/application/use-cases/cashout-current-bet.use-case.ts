@@ -2,6 +2,7 @@ import { ConflictException, Inject, Injectable } from "@nestjs/common";
 import type { ClientProxy } from "@nestjs/microservices";
 import { randomUUID } from "crypto";
 import { firstValueFrom, timeout } from "rxjs";
+import { GameEventsService } from "../events/game-events.service";
 import { BET_REPOSITORY, type BetRepository } from "../../domain/bets/bet.repository";
 import type { BetRecord } from "../../domain/bets/bet.types";
 import { ROUND_REPOSITORY, type RoundRepository } from "../../domain/rounds/round.repository";
@@ -21,6 +22,7 @@ export class CashoutCurrentBetUseCase {
     private readonly betRepository: BetRepository,
     @Inject(WALLETS_RMQ_CLIENT)
     private readonly walletsClient: ClientProxy,
+    private readonly gameEvents: GameEventsService,
   ) {}
 
   async execute(playerId: string): Promise<BetRecord> {
@@ -71,10 +73,13 @@ export class CashoutCurrentBetUseCase {
       );
 
       if (response.status === "APPROVED") {
-        return (await this.betRepository.markCashoutPendingBetAsCashedOut(
+        const cashedOutBet = (await this.betRepository.markCashoutPendingBetAsCashedOut(
           response.correlationId,
           new Date(response.processedAt),
         )) as BetRecord;
+
+        this.gameEvents.emit("bet:cashed_out", { bet: cashedOutBet });
+        return cashedOutBet;
       }
 
       const revertedBet =
