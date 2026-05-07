@@ -7,6 +7,12 @@ import { PrismaService } from "../prisma/prisma.service";
 export class PrismaRoundRepository implements RoundRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async findById(roundId: string): Promise<RoundRecord | null> {
+    return this.prisma.round.findUnique({
+      where: { id: roundId },
+    });
+  }
+
   async findCurrentBettingRound(): Promise<RoundRecord | null> {
     return this.prisma.round.findFirst({
       where: { status: "BETTING" },

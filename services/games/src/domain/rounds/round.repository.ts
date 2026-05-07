@@ -11,6 +11,7 @@ export interface CreateRoundInput {
 }
 
 export interface RoundRepository {
+  findById(roundId: string): Promise<RoundRecord | null>;
   findCurrentBettingRound(): Promise<RoundRecord | null>;
   findCurrentActiveRound(): Promise<RoundRecord | null>;
   getNextRoundNumber(): Promise<number>;

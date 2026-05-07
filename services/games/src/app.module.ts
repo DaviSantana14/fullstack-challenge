@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ClientsModule, Transport } from "@nestjs/microservices";
 import { CrashCurrentRoundUseCase } from "./application/use-cases/crash-current-round.use-case";
 import { CreateRoundUseCase } from "./application/use-cases/create-round.use-case";
 import { GetCurrentRoundUseCase } from "./application/use-cases/get-current-round.use-case";
@@ -8,6 +9,8 @@ import { StartCurrentRoundUseCase } from "./application/use-cases/start-current-
 import { BET_REPOSITORY } from "./domain/bets/bet.repository";
 import { ROUND_REPOSITORY } from "./domain/rounds/round.repository";
 import { PrismaBetRepository } from "./infrastructure/bets/prisma-bet.repository";
+import { WALLETS_RMQ_CLIENT } from "./infrastructure/messaging/wallet-debit.contract";
+import { WalletDebitResultConsumer } from "./infrastructure/messaging/wallet-debit-result.consumer";
 import { PrismaService } from "./infrastructure/prisma/prisma.service";
 import { PrismaRoundRepository } from "./infrastructure/rounds/prisma-round.repository";
 import { BetsController } from "./presentation/controllers/bets.controller";
@@ -16,7 +19,28 @@ import { InternalRoundsController } from "./presentation/controllers/internal-ro
 import { RoundsController } from "./presentation/controllers/rounds.controller";
 
 @Module({
-  controllers: [GamesController, InternalRoundsController, RoundsController, BetsController],
+  imports: [
+    ClientsModule.register([
+      {
+        name: WALLETS_RMQ_CLIENT,
+        transport: Transport.RMQ,
+        options: {
+          urls: [process.env.RABBITMQ_URL ?? "amqp://admin:admin@localhost:5672"],
+          queue: "wallets_debit_queue",
+          queueOptions: {
+            durable: true,
+          },
+        },
+      },
+    ]),
+  ],
+  controllers: [
+    GamesController,
+    InternalRoundsController,
+    RoundsController,
+    BetsController,
+    WalletDebitResultConsumer,
+  ],
   providers: [
     PrismaService,
     CrashCurrentRoundUseCase,

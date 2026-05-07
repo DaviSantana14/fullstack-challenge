@@ -4,7 +4,10 @@ import {
   Inject,
   Injectable,
 } from "@nestjs/common";
+import type { ClientProxy } from "@nestjs/microservices";
 import { Prisma } from "../../../generated/prisma/client";
+import { randomUUID } from "crypto";
+import { firstValueFrom, timeout } from "rxjs";
 import {
   BET_REPOSITORY,
   type BetRepository,
@@ -14,6 +17,12 @@ import {
   ROUND_REPOSITORY,
   type RoundRepository,
 } from "../../domain/rounds/round.repository";
+import {
+  WALLET_DEBIT_PATTERN,
+  WALLETS_RMQ_CLIENT,
+  type WalletDebitRequestMessage,
+  type WalletDebitResponseMessage,
+} from "../../infrastructure/messaging/wallet-debit.contract";
 
 @Injectable()
 export class PlaceBetUseCase {
@@ -22,6 +31,8 @@ export class PlaceBetUseCase {
     private readonly roundRepository: RoundRepository,
     @Inject(BET_REPOSITORY)
     private readonly betRepository: BetRepository,
+    @Inject(WALLETS_RMQ_CLIENT)
+    private readonly walletsClient: ClientProxy,
   ) {}
 
   async execute(playerId: string, amountInCentsInput: string): Promise<BetRecord> {
@@ -41,11 +52,14 @@ export class PlaceBetUseCase {
       throw new ConflictException("Player already has a bet in the current round.");
     }
 
+    let pendingBet: BetRecord;
+
     try {
-      return await this.betRepository.createAcceptedBet({
+      pendingBet = await this.betRepository.createPendingBet({
         roundId: round.id,
         playerId,
         amountInCents,
+        correlationId: randomUUID(),
       });
     } catch (error) {
       if (
@@ -56,6 +70,57 @@ export class PlaceBetUseCase {
       }
 
       throw error;
+    }
+
+    const requestMessage: WalletDebitRequestMessage = {
+      messageId: randomUUID(),
+      correlationId: pendingBet.correlationId as string,
+      betId: pendingBet.id,
+      roundId: round.id,
+      playerId,
+      amountInCents: amountInCents.toString(),
+      occurredAt: new Date().toISOString(),
+    };
+
+    try {
+      const response = await firstValueFrom(
+        this.walletsClient
+          .send<WalletDebitResponseMessage>(WALLET_DEBIT_PATTERN, requestMessage)
+          .pipe(timeout(3000)),
+      );
+
+      if (response.status === "APPROVED") {
+        const processedAt = new Date(response.processedAt);
+        const acceptedBet = await this.betRepository.markPendingBetAsAcceptedIfRoundActive(
+          response.correlationId,
+          processedAt,
+        );
+
+        if (acceptedBet?.status === "ACCEPTED") {
+          return acceptedBet;
+        }
+
+        const lostBet = await this.betRepository.markPendingBetAsLostIfRoundCrashed(
+          response.correlationId,
+          processedAt,
+        );
+
+        if (lostBet?.status === "LOST") {
+          return lostBet;
+        }
+
+        return (await this.betRepository.markPendingBetAsRejected(
+          response.correlationId,
+          "ROUND_CLOSED",
+        )) as BetRecord;
+      }
+
+      return (await this.betRepository.markPendingBetAsRejected(
+        response.correlationId,
+        response.reason ?? "WALLET_REJECTED",
+      )) as BetRecord;
+    } catch {
+      return pendingBet;
     }
   }
 
