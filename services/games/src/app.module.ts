@@ -23,6 +23,7 @@ import { GamesController } from "./presentation/controllers/games.controller";
 import { InternalRoundsController } from "./presentation/controllers/internal-rounds.controller";
 import { RoundsController } from "./presentation/controllers/rounds.controller";
 import { GameGateway } from "./presentation/gateways/game.gateway";
+import { MvpAuthGuard } from "./presentation/auth/mvp-auth.guard";
 
 @Module({
   imports: [
@@ -47,11 +48,12 @@ import { GameGateway } from "./presentation/gateways/game.gateway";
     BetsController,
     WalletCreditResultConsumer,
     WalletDebitResultConsumer,
-    GameGateway,
   ],
   providers: [
     PrismaService,
     GameEventsService,
+    GameGateway,
+    MvpAuthGuard,
     CashoutCurrentBetUseCase,
     CrashCurrentRoundUseCase,
     CreateRoundUseCase,
