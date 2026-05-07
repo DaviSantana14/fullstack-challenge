@@ -6,7 +6,7 @@ import type {
   StartCashoutInput,
 } from "../../domain/bets/bet.repository";
 import type { BetRecord } from "../../domain/bets/bet.types";
-import { Prisma } from "../../../generated/prisma/client";
+import { Prisma, $Enums } from "../../../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -46,7 +46,7 @@ export class PrismaBetRepository implements BetRepository {
       where: {
         roundId,
         playerId,
-        status: "ACCEPTED",
+        status: $Enums.BetStatus.ACCEPTED,
       },
     });
 
@@ -69,7 +69,7 @@ export class PrismaBetRepository implements BetRepository {
         roundId: input.roundId,
         playerId: input.playerId,
         amountInCents: input.amountInCents,
-        status: "ACCEPTED",
+        status: $Enums.BetStatus.ACCEPTED,
         acceptedAt: new Date(),
       },
     });
@@ -83,7 +83,7 @@ export class PrismaBetRepository implements BetRepository {
         roundId: input.roundId,
         playerId: input.playerId,
         amountInCents: input.amountInCents,
-        status: "PENDING",
+        status: $Enums.BetStatus.PENDING,
         correlationId: input.correlationId,
       },
     });
@@ -189,17 +189,17 @@ export class PrismaBetRepository implements BetRepository {
     const result = await this.prisma.bet.updateMany({
       where: {
         correlationId,
-        status: "PENDING",
+        status: $Enums.BetStatus.PENDING,
         round: {
           is: {
             status: {
-              in: ["BETTING", "IN_PROGRESS"],
+              in: [$Enums.RoundStatus.BETTING, $Enums.RoundStatus.IN_PROGRESS],
             },
           },
         },
       },
       data: {
-        status: "ACCEPTED",
+        status: $Enums.BetStatus.ACCEPTED,
         acceptedAt,
         rejectionReason: null,
       },
@@ -219,15 +219,15 @@ export class PrismaBetRepository implements BetRepository {
     const result = await this.prisma.bet.updateMany({
       where: {
         correlationId,
-        status: "PENDING",
+        status: $Enums.BetStatus.PENDING,
         round: {
           is: {
-            status: "CRASHED",
+            status: $Enums.RoundStatus.CRASHED,
           },
         },
       },
       data: {
-        status: "LOST",
+        status: $Enums.BetStatus.LOST,
         settledAt,
       },
     });
@@ -246,10 +246,10 @@ export class PrismaBetRepository implements BetRepository {
     const result = await this.prisma.bet.updateMany({
       where: {
         correlationId,
-        status: "PENDING",
+        status: $Enums.BetStatus.PENDING,
       },
       data: {
-        status: "REJECTED",
+        status: $Enums.BetStatus.REJECTED,
         rejectionReason,
       },
     });
@@ -261,14 +261,29 @@ export class PrismaBetRepository implements BetRepository {
     return this.findByCorrelationId(correlationId);
   }
 
+  async markCashoutPendingBetsAsLost(roundId: string, settledAt: Date): Promise<number> {
+    const result = await this.prisma.bet.updateMany({
+      where: {
+        roundId,
+        status: $Enums.BetStatus.CASHOUT_PENDING,
+      },
+      data: {
+        status: $Enums.BetStatus.LOST,
+        settledAt,
+      },
+    });
+
+    return result.count;
+  }
+
   async markAcceptedBetsAsLost(roundId: string, settledAt: Date): Promise<number> {
     const result = await this.prisma.bet.updateMany({
       where: {
         roundId,
-        status: "ACCEPTED",
+        status: $Enums.BetStatus.ACCEPTED,
       },
       data: {
-        status: "LOST",
+        status: $Enums.BetStatus.LOST,
         settledAt,
       },
     });

@@ -3,6 +3,7 @@ import type { ClientProxy } from "@nestjs/microservices";
 import { randomUUID } from "crypto";
 import { firstValueFrom, timeout } from "rxjs";
 import { GameEventsService } from "../events/game-events.service";
+import { getMultiplierHundredths } from "../../domain/multiplier/multiplier.service";
 import { BET_REPOSITORY, type BetRepository } from "../../domain/bets/bet.repository";
 import type { BetRecord } from "../../domain/bets/bet.types";
 import { ROUND_REPOSITORY, type RoundRepository } from "../../domain/rounds/round.repository";
@@ -106,6 +107,6 @@ export class CashoutCurrentBetUseCase {
   private getServerCashoutMultiplierHundredths(startedAt: Date): number {
     const elapsedMs = Math.max(0, Date.now() - startedAt.getTime());
 
-    return Math.max(100, 100 + Math.floor(elapsedMs / 20));
+    return getMultiplierHundredths(elapsedMs);
   }
 }

@@ -51,5 +51,6 @@ export interface BetRepository {
     settledAt: Date,
   ): Promise<BetRecord | null>;
   markPendingBetAsRejected(correlationId: string, rejectionReason: string): Promise<BetRecord | null>;
+  markCashoutPendingBetsAsLost(roundId: string, settledAt: Date): Promise<number>;
   markAcceptedBetsAsLost(roundId: string, settledAt: Date): Promise<number>;
 }

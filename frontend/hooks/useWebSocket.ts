@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { io, type Socket } from "socket.io-client";
+import { getPlayerId } from "@/lib/auth";
 import type { Round, Bet } from "@/types/game";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "http://localhost:4001";
@@ -44,16 +45,16 @@ export function useWebSocket() {
     });
 
     socket.on("bet:placed", (payload: { bet: Bet }) => {
-      // If this is our bet, update current bet
-      const currentBet = queryClient.getQueryData<Bet>(["bet", "current"]);
-      if (currentBet?.id === payload.bet.id || !currentBet) {
+      // Only update if this bet belongs to the current player
+      const currentPlayerId = getPlayerId();
+      if (payload.bet.playerId === currentPlayerId) {
         queryClient.setQueryData(["bet", "current"], payload.bet);
       }
     });
 
     socket.on("bet:cashed_out", (payload: { bet: Bet }) => {
-      const currentBet = queryClient.getQueryData<Bet>(["bet", "current"]);
-      if (currentBet?.id === payload.bet.id) {
+      const currentPlayerId = getPlayerId();
+      if (payload.bet.playerId === currentPlayerId) {
         queryClient.setQueryData(["bet", "current"], payload.bet);
       }
       queryClient.invalidateQueries({ queryKey: ["wallet"] });

@@ -4,6 +4,7 @@ import { GetRoundHistoryUseCase } from "../../application/use-cases/get-round-hi
 import { VerifyRoundUseCase } from "../../application/use-cases/verify-round.use-case";
 import { CurrentRoundResponseDto } from "../dtos/current-round-response.dto";
 import { RoundHistoryResponseDto } from "../dtos/round-history-response.dto";
+import { RoundResponseOrNullDto } from "../dtos/round-response-or-null.dto";
 import { VerifyRoundResponseDto } from "../dtos/verify-round-response.dto";
 
 @Controller("rounds")
@@ -15,10 +16,10 @@ export class RoundsController {
   ) {}
 
   @Get("current")
-  async getCurrentRound(): Promise<CurrentRoundResponseDto> {
+  async getCurrentRound(): Promise<RoundResponseOrNullDto> {
     const round = await this.getCurrentRoundUseCase.execute();
 
-    return CurrentRoundResponseDto.fromRound(round);
+    return RoundResponseOrNullDto.fromRound(round);
   }
 
   @Get("history")

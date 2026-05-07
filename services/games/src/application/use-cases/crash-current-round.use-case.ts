@@ -1,5 +1,6 @@
-import { BadRequestException, ConflictException, Inject, Injectable } from "@nestjs/common";
+import { ConflictException, Inject, Injectable } from "@nestjs/common";
 import { GameEventsService } from "../events/game-events.service";
+import { calculateCrashPoint } from "../../domain/provably-fair/provably-fair.service";
 import {
   BET_REPOSITORY,
   type BetRepository,
@@ -20,27 +21,27 @@ export class CrashCurrentRoundUseCase {
     private readonly gameEvents: GameEventsService,
   ) {}
 
-  async execute(crashPointHundredthsInput: number): Promise<RoundRecord> {
-    if (!Number.isInteger(crashPointHundredthsInput) || crashPointHundredthsInput < 100) {
-      throw new BadRequestException(
-        "crashPointHundredths must be an integer greater than or equal to 100.",
-      );
-    }
-
+  async execute(): Promise<RoundRecord> {
     const round = await this.roundRepository.findCurrentActiveRound();
 
     if (!round || round.status !== "IN_PROGRESS") {
       throw new ConflictException("No in-progress round is available to crash.");
     }
 
+    if (!round.serverSeed) {
+      throw new ConflictException("Round does not have a server seed.");
+    }
+
+    const crashPointHundredths = calculateCrashPoint(round.serverSeed);
     const crashedAt = new Date();
     const crashedRound = await this.roundRepository.crashRound(
       round.id,
-      crashPointHundredthsInput,
+      crashPointHundredths,
       crashedAt,
     );
 
     await this.betRepository.markAcceptedBetsAsLost(round.id, crashedAt);
+    await this.betRepository.markCashoutPendingBetsAsLost(round.id, crashedAt);
 
     this.gameEvents.emit("round:crashed", {
       round: crashedRound,

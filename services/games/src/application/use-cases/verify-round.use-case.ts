@@ -1,5 +1,6 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { createHash, createHmac } from "crypto";
+import { createHash } from "crypto";
+import { calculateCrashPoint } from "../../domain/provably-fair/provably-fair.service";
 import {
   ROUND_REPOSITORY,
   type RoundRepository,
@@ -38,7 +39,7 @@ export class VerifyRoundUseCase {
 
     const isValid = serverSeedHash === round.serverSeedHash;
 
-    const calculatedCrashPointHundredths = this.calculateCrashPoint(
+    const calculatedCrashPointHundredths = calculateCrashPoint(
       round.serverSeed,
     );
 
@@ -49,20 +50,5 @@ export class VerifyRoundUseCase {
       serverSeedHash,
       serverSeed: round.serverSeed,
     };
-  }
-
-  private calculateCrashPoint(serverSeed: string): number {
-    const hash = createHmac("sha256", serverSeed)
-      .update("crash-game-salt")
-      .digest("hex");
-
-    const seed = parseInt(hash.substring(0, 13), 16);
-    const max = Math.pow(2, 52);
-    const result = seed / max;
-
-    // House edge: 1% — crash point = 0.99 / result, capped at 1000x
-    const crashPoint = Math.floor((0.99 / result) * 100);
-
-    return Math.max(100, Math.min(crashPoint, 100_000));
   }
 }

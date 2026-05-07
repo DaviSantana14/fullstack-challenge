@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import {
   BET_REPOSITORY,
   type BetRepository,
@@ -18,19 +18,15 @@ export class GetMyCurrentBetUseCase {
     private readonly betRepository: BetRepository,
   ) {}
 
-  async execute(playerId: string): Promise<BetRecord> {
+  async execute(playerId: string): Promise<BetRecord | null> {
     const round = await this.roundRepository.findCurrentActiveRound();
 
     if (!round) {
-      throw new NotFoundException("No active round was found.");
+      return null;
     }
 
     const bet = await this.betRepository.findByRoundIdAndPlayerId(round.id, playerId);
 
-    if (!bet) {
-      throw new NotFoundException("No current-round bet was found for this player.");
-    }
-
-    return bet;
+    return bet ?? null;
   }
 }

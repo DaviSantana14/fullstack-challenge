@@ -9,7 +9,10 @@ import type { Round, Bet, Wallet, RoundHistoryItem } from "@/types/game";
 function useCurrentRound() {
   return useQuery({
     queryKey: ["round", "current"],
-    queryFn: () => apiGet<Round>("/games/rounds/current"),
+    queryFn: async () => {
+      const response = await apiGet<{ round: Round | null }>("/games/rounds/current");
+      return response.round;
+    },
     refetchInterval: (query) => {
       const data = query.state.data;
       if (data?.status === "IN_PROGRESS") return 500;
@@ -21,7 +24,10 @@ function useCurrentRound() {
 function useMyCurrentBet() {
   return useQuery({
     queryKey: ["bet", "current"],
-    queryFn: () => apiGet<Bet>("/games/bets/me/current"),
+    queryFn: async () => {
+      const response = await apiGet<{ bet: Bet | null }>("/games/bets/me/current");
+      return response.bet;
+    },
     refetchInterval: (query) => {
       const data = query.state.data;
       if (data?.status === "CASHOUT_PENDING") return 500;
@@ -122,9 +128,9 @@ function useMultiplier(round: Round | null): number {
     const elapsedMs = Math.max(0, Date.now() - startedAt);
     const elapsedSeconds = elapsedMs / 1000;
 
-    // Formula: e^(0.06 * t), same as server-side logic
+    // Formula: e^(0.06 * t), must match server-side getMultiplierHundredths exactly
     const raw = Math.exp(0.06 * elapsedSeconds);
-    return Math.floor(raw * 100) / 100;
+    return Math.max(1.0, Math.floor(raw * 100) / 100);
   }, [round]);
 
   useEffect(() => {

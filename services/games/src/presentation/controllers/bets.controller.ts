@@ -6,6 +6,7 @@ import { CurrentUser } from "../auth/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/authenticated-user.interface";
 import { MvpAuthGuard } from "../auth/mvp-auth.guard";
 import { BetResponseDto } from "../dtos/bet-response.dto";
+import { BetResponseOrNullDto } from "../dtos/bet-response-or-null.dto";
 import type { CashoutRequestDto } from "../dtos/cashout-request.dto";
 import type { PlaceBetRequestDto } from "../dtos/place-bet-request.dto";
 
@@ -32,10 +33,10 @@ export class BetsController {
   @UseGuards(MvpAuthGuard)
   async getMyCurrentBet(
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<BetResponseDto> {
+  ): Promise<BetResponseOrNullDto> {
     const bet = await this.getMyCurrentBetUseCase.execute(user.playerId);
 
-    return BetResponseDto.fromBet(bet);
+    return BetResponseOrNullDto.fromBet(bet);
   }
 
   @Post("me/current/cashout")

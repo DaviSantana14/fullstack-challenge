@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import {
   ROUND_REPOSITORY,
   type RoundRepository,
@@ -12,13 +12,9 @@ export class GetCurrentRoundUseCase {
     private readonly roundRepository: RoundRepository,
   ) {}
 
-  async execute(): Promise<RoundRecord> {
+  async execute(): Promise<RoundRecord | null> {
     const round = await this.roundRepository.findCurrentActiveRound();
 
-    if (!round) {
-      throw new NotFoundException("No active round was found.");
-    }
-
-    return round;
+    return round ?? null;
   }
 }

@@ -1,9 +1,8 @@
-import { Body, Controller, Post, UseGuards } from "@nestjs/common";
+import { Controller, Post, UseGuards } from "@nestjs/common";
 import { CrashCurrentRoundUseCase } from "../../application/use-cases/crash-current-round.use-case";
 import { CreateRoundUseCase } from "../../application/use-cases/create-round.use-case";
 import { StartCurrentRoundUseCase } from "../../application/use-cases/start-current-round.use-case";
 import { InternalApiGuard } from "../auth/internal-api.guard";
-import type { CrashRoundRequestDto } from "../dtos/crash-round-request.dto";
 import { CurrentRoundResponseDto } from "../dtos/current-round-response.dto";
 
 @Controller("internal/rounds")
@@ -32,10 +31,8 @@ export class InternalRoundsController {
 
   @Post("current/crash")
   @UseGuards(InternalApiGuard)
-  async crashCurrentRound(
-    @Body() body: CrashRoundRequestDto,
-  ): Promise<CurrentRoundResponseDto> {
-    const round = await this.crashCurrentRoundUseCase.execute(body.crashPointHundredths);
+  async crashCurrentRound(): Promise<CurrentRoundResponseDto> {
+    const round = await this.crashCurrentRoundUseCase.execute();
 
     return CurrentRoundResponseDto.fromRound(round);
   }
