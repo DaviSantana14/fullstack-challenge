@@ -22,3 +22,28 @@ export interface WalletDebitResponseMessage {
 }
 
 export interface WalletDebitResultEventMessage extends WalletDebitResponseMessage {}
+
+export const WALLET_CREDIT_PATTERN = "wallet.credit.request";
+export const WALLET_CREDIT_RESULT_EVENT = "wallet.credit.result";
+
+export interface WalletCreditRequestMessage {
+  messageId: string;
+  correlationId: string;
+  betId: string;
+  roundId: string;
+  playerId: string;
+  amountInCents: string;
+  reason: "CASHOUT_PAYOUT";
+  occurredAt: string;
+}
+
+export interface WalletCreditResponseMessage {
+  correlationId: string;
+  betId: string;
+  status: "APPROVED" | "REJECTED";
+  reason: "WALLET_NOT_FOUND" | "DUPLICATE_REQUEST" | null;
+  walletTransactionId: string | null;
+  processedAt: string;
+}
+
+export interface WalletCreditResultEventMessage extends WalletCreditResponseMessage {}

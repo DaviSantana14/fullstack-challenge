@@ -1,0 +1,106 @@
+import { ConflictException, Inject, Injectable } from "@nestjs/common";
+import type { ClientProxy } from "@nestjs/microservices";
+import { randomUUID } from "crypto";
+import { firstValueFrom, timeout } from "rxjs";
+import { BET_REPOSITORY, type BetRepository } from "../../domain/bets/bet.repository";
+import type { BetRecord } from "../../domain/bets/bet.types";
+import { ROUND_REPOSITORY, type RoundRepository } from "../../domain/rounds/round.repository";
+import {
+  WALLET_CREDIT_PATTERN,
+  WALLETS_RMQ_CLIENT,
+  type WalletCreditRequestMessage,
+  type WalletCreditResponseMessage,
+} from "../../infrastructure/messaging/wallet-debit.contract";
+
+@Injectable()
+export class CashoutCurrentBetUseCase {
+  constructor(
+    @Inject(ROUND_REPOSITORY)
+    private readonly roundRepository: RoundRepository,
+    @Inject(BET_REPOSITORY)
+    private readonly betRepository: BetRepository,
+    @Inject(WALLETS_RMQ_CLIENT)
+    private readonly walletsClient: ClientProxy,
+  ) {}
+
+  async execute(playerId: string): Promise<BetRecord> {
+    const round = await this.roundRepository.findCurrentActiveRound();
+
+    if (!round || round.status !== "IN_PROGRESS" || !round.startedAt) {
+      throw new ConflictException("No in-progress round is available for cashout.");
+    }
+
+    const bet = await this.betRepository.findCurrentAcceptedBet(round.id, playerId);
+
+    if (!bet) {
+      throw new ConflictException("No accepted current-round bet is available for cashout.");
+    }
+
+    const cashoutMultiplierHundredths = this.getServerCashoutMultiplierHundredths(round.startedAt);
+    const payoutInCents =
+      (bet.amountInCents * BigInt(cashoutMultiplierHundredths)) / BigInt(100);
+    const cashoutCorrelationId = randomUUID();
+
+    const cashoutPendingBet = await this.betRepository.startCashout({
+      correlationId: bet.correlationId as string,
+      cashoutCorrelationId,
+      cashoutMultiplierHundredths,
+      payoutInCents,
+    });
+
+    if (!cashoutPendingBet || cashoutPendingBet.status !== "CASHOUT_PENDING") {
+      throw new ConflictException("Failed to reserve bet for cashout.");
+    }
+
+    const requestMessage: WalletCreditRequestMessage = {
+      messageId: randomUUID(),
+      correlationId: cashoutCorrelationId,
+      betId: bet.id,
+      roundId: round.id,
+      playerId,
+      amountInCents: payoutInCents.toString(),
+      reason: "CASHOUT_PAYOUT",
+      occurredAt: new Date().toISOString(),
+    };
+
+    try {
+      const response = await firstValueFrom(
+        this.walletsClient
+          .send<WalletCreditResponseMessage>(WALLET_CREDIT_PATTERN, requestMessage)
+          .pipe(timeout(3000)),
+      );
+
+      if (response.status === "APPROVED") {
+        return (await this.betRepository.markCashoutPendingBetAsCashedOut(
+          response.correlationId,
+          new Date(response.processedAt),
+        )) as BetRecord;
+      }
+
+      const revertedBet =
+        await this.betRepository.markCashoutPendingBetAsAcceptedIfRoundInProgress(
+          response.correlationId,
+          response.reason ?? "CASHOUT_CREDIT_REJECTED",
+        );
+
+      if (revertedBet?.status === "ACCEPTED") {
+        return revertedBet;
+      }
+
+      const lostBet = await this.betRepository.markCashoutPendingBetAsLostIfRoundCrashed(
+        response.correlationId,
+        new Date(response.processedAt),
+      );
+
+      return (lostBet ?? cashoutPendingBet) as BetRecord;
+    } catch {
+      return cashoutPendingBet;
+    }
+  }
+
+  private getServerCashoutMultiplierHundredths(startedAt: Date): number {
+    const elapsedMs = Math.max(0, Date.now() - startedAt.getTime());
+
+    return Math.max(100, 100 + Math.floor(elapsedMs / 20));
+  }
+}

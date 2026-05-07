@@ -18,6 +18,7 @@ enum RoundStatus {
 enum BetStatus {
   PENDING
   ACCEPTED
+  CASHOUT_PENDING
   REJECTED
   CASHED_OUT
   LOST
@@ -54,6 +55,7 @@ model Bet {
   cashoutMultiplierHundredths Int?
   payoutInCents              BigInt?
   correlationId              String?   @unique
+  cashoutCorrelationId       String?   @unique
   rejectionReason            String?
   placedAt                   DateTime  @default(now())
   acceptedAt                 DateTime?

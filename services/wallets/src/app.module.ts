@@ -1,9 +1,11 @@
 import { Module } from "@nestjs/common";
 import { ClientsModule, Transport } from "@nestjs/microservices";
 import { CreateWalletUseCase } from "./application/use-cases/create-wallet.use-case";
+import { CreditWalletForCashoutUseCase } from "./application/use-cases/credit-wallet-for-cashout.use-case";
 import { DebitWalletForBetUseCase } from "./application/use-cases/debit-wallet-for-bet.use-case";
 import { GetMyWalletUseCase } from "./application/use-cases/get-my-wallet.use-case";
 import { GAMES_RESULTS_RMQ_CLIENT } from "./infrastructure/messaging/wallet-debit.contract";
+import { WalletCreditConsumer } from "./infrastructure/messaging/wallet-credit.consumer";
 import { WalletDebitConsumer } from "./infrastructure/messaging/wallet-debit.consumer";
 import { WALLET_REPOSITORY } from "./domain/wallets/wallet.repository";
 import { PrismaService } from "./infrastructure/prisma/prisma.service";
@@ -26,10 +28,11 @@ import { WalletsController } from "./presentation/controllers/wallets.controller
       },
     ]),
   ],
-  controllers: [WalletsController, WalletDebitConsumer],
+  controllers: [WalletsController, WalletDebitConsumer, WalletCreditConsumer],
   providers: [
     PrismaService,
     CreateWalletUseCase,
+    CreditWalletForCashoutUseCase,
     DebitWalletForBetUseCase,
     GetMyWalletUseCase,
     {

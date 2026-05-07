@@ -1,4 +1,9 @@
-import type { WalletDebitResult, WalletRecord, WalletTransactionRecord } from "./wallet.types";
+import type {
+  WalletCreditResult,
+  WalletDebitResult,
+  WalletRecord,
+  WalletTransactionRecord,
+} from "./wallet.types";
 
 export const WALLET_REPOSITORY = Symbol("WALLET_REPOSITORY");
 
@@ -12,4 +17,10 @@ export interface WalletRepository {
     correlationId: string,
     externalReference: string,
   ): Promise<WalletDebitResult>;
+  creditForCashout(
+    playerId: string,
+    amountInCents: bigint,
+    correlationId: string,
+    externalReference: string,
+  ): Promise<WalletCreditResult>;
 }

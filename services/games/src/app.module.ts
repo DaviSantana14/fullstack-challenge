@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ClientsModule, Transport } from "@nestjs/microservices";
+import { CashoutCurrentBetUseCase } from "./application/use-cases/cashout-current-bet.use-case";
 import { CrashCurrentRoundUseCase } from "./application/use-cases/crash-current-round.use-case";
 import { CreateRoundUseCase } from "./application/use-cases/create-round.use-case";
 import { GetCurrentRoundUseCase } from "./application/use-cases/get-current-round.use-case";
@@ -10,6 +11,7 @@ import { BET_REPOSITORY } from "./domain/bets/bet.repository";
 import { ROUND_REPOSITORY } from "./domain/rounds/round.repository";
 import { PrismaBetRepository } from "./infrastructure/bets/prisma-bet.repository";
 import { WALLETS_RMQ_CLIENT } from "./infrastructure/messaging/wallet-debit.contract";
+import { WalletCreditResultConsumer } from "./infrastructure/messaging/wallet-credit-result.consumer";
 import { WalletDebitResultConsumer } from "./infrastructure/messaging/wallet-debit-result.consumer";
 import { PrismaService } from "./infrastructure/prisma/prisma.service";
 import { PrismaRoundRepository } from "./infrastructure/rounds/prisma-round.repository";
@@ -39,10 +41,12 @@ import { RoundsController } from "./presentation/controllers/rounds.controller";
     InternalRoundsController,
     RoundsController,
     BetsController,
+    WalletCreditResultConsumer,
     WalletDebitResultConsumer,
   ],
   providers: [
     PrismaService,
+    CashoutCurrentBetUseCase,
     CrashCurrentRoundUseCase,
     CreateRoundUseCase,
     GetCurrentRoundUseCase,

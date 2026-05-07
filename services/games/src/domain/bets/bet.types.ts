@@ -3,10 +3,19 @@ export interface BetRecord {
   roundId: string;
   playerId: string;
   amountInCents: bigint;
-  status: "PENDING" | "ACCEPTED" | "REJECTED" | "CASHED_OUT" | "LOST" | "REFUNDED" | "VOIDED";
+  status:
+    | "PENDING"
+    | "ACCEPTED"
+    | "CASHOUT_PENDING"
+    | "REJECTED"
+    | "CASHED_OUT"
+    | "LOST"
+    | "REFUNDED"
+    | "VOIDED";
   cashoutMultiplierHundredths: number | null;
   payoutInCents: bigint | null;
   correlationId: string | null;
+  cashoutCorrelationId: string | null;
   rejectionReason: string | null;
   placedAt: Date;
   acceptedAt: Date | null;

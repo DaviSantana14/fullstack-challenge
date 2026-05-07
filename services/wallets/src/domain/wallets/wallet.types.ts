@@ -29,3 +29,9 @@ export interface WalletDebitResult {
   reason: "INSUFFICIENT_FUNDS" | "WALLET_NOT_FOUND" | "DUPLICATE_REQUEST" | null;
   walletTransactionId: string | null;
 }
+
+export interface WalletCreditResult {
+  status: "APPROVED" | "REJECTED";
+  reason: "WALLET_NOT_FOUND" | "DUPLICATE_REQUEST" | null;
+  walletTransactionId: string | null;
+}
