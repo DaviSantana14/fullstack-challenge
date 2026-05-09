@@ -21,6 +21,7 @@ import { WalletCreditResultConsumer } from "./infrastructure/messaging/wallet-cr
 import { WalletDebitResultConsumer } from "./infrastructure/messaging/wallet-debit-result.consumer";
 import { PrismaService } from "./infrastructure/prisma/prisma.service";
 import { PrismaRoundRepository } from "./infrastructure/rounds/prisma-round.repository";
+import { BetAliasController } from "./presentation/controllers/bet-alias.controller";
 import { BetsController } from "./presentation/controllers/bets.controller";
 import { GamesController } from "./presentation/controllers/games.controller";
 import { InternalRoundsController } from "./presentation/controllers/internal-rounds.controller";
@@ -48,6 +49,7 @@ import { MvpAuthGuard } from "./presentation/auth/mvp-auth.guard";
     GamesController,
     InternalRoundsController,
     RoundsController,
+    BetAliasController,
     BetsController,
     WalletCreditResultConsumer,
     WalletDebitResultConsumer,
