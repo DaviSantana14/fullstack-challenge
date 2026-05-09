@@ -22,9 +22,25 @@ export interface StartCashoutInput {
   payoutInCents: bigint;
 }
 
+export interface BetPaginationCursor {
+  placedAt: Date;
+  id: string;
+}
+
+export interface FindPlayerBetsPageInput {
+  playerId: string;
+  limit: number;
+  cursor?: BetPaginationCursor;
+}
+
+export interface FindPlayerBetsPageResult {
+  items: BetRecord[];
+  hasNextPage: boolean;
+}
+
 export interface BetRepository {
   findByRoundId(roundId: string): Promise<BetRecord[]>;
-  findByPlayerId(playerId: string, limit: number): Promise<BetRecord[]>;
+  findPlayerBetsPage(input: FindPlayerBetsPageInput): Promise<FindPlayerBetsPageResult>;
   findByRoundIdAndPlayerId(roundId: string, playerId: string): Promise<BetRecord | null>;
   findByCorrelationId(correlationId: string): Promise<BetRecord | null>;
   createPendingBet(input: CreatePendingBetInput): Promise<BetRecord>;

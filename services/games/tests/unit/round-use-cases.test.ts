@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { ConflictException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
 import type { BetRepository } from "../../src/domain/bets/bet.repository";
 import type { RoundRepository } from "../../src/domain/rounds/round.repository";
 import type { RoundRecord } from "../../src/domain/rounds/round.types";
@@ -72,7 +72,7 @@ function makeBetRepository(
 ): BetRepository {
   return {
     findByRoundId: mock(async () => []),
-    findByPlayerId: mock(async () => []),
+    findPlayerBetsPage: mock(async () => ({ items: [], hasNextPage: false })),
     findByRoundIdAndPlayerId: mock(async () => null),
     findByCorrelationId: mock(async () => null),
     createPendingBet: mock(),
@@ -284,34 +284,102 @@ describe("round use cases", () => {
   });
 
   describe("GetMyBetsUseCase", () => {
-    test("returns the latest bets for a player", async () => {
-      const bets = [
-        {
-          id: "bet-1",
-          roundId: "round-1",
-          playerId: "player-1",
-          amountInCents: BigInt(1000),
-          status: "LOST" as const,
-          cashoutMultiplierHundredths: null,
-          payoutInCents: null,
-          correlationId: "correlation-1",
-          cashoutCorrelationId: null,
-          rejectionReason: null,
-          placedAt: baseDate,
-          acceptedAt: baseDate,
-          cashedOutAt: null,
-          settledAt: baseDate,
-          createdAt: baseDate,
-          updatedAt: baseDate,
-        },
-      ];
+    const bet = {
+      id: "bet-1",
+      roundId: "round-1",
+      playerId: "player-1",
+      amountInCents: BigInt(1000),
+      status: "LOST" as const,
+      cashoutMultiplierHundredths: null,
+      payoutInCents: null,
+      correlationId: "correlation-1",
+      cashoutCorrelationId: null,
+      rejectionReason: null,
+      placedAt: baseDate,
+      acceptedAt: baseDate,
+      cashedOutAt: null,
+      settledAt: baseDate,
+      createdAt: baseDate,
+      updatedAt: baseDate,
+    };
+
+    test("returns the first page with default limit", async () => {
       const betRepository = makeBetRepository({
-        findByPlayerId: mock(async () => bets),
+        findPlayerBetsPage: mock(async () => ({
+          items: [bet],
+          hasNextPage: false,
+        })),
       });
       const useCase = new GetMyBetsUseCase(betRepository);
 
-      await expect(useCase.execute("player-1")).resolves.toBe(bets);
-      expect(betRepository.findByPlayerId).toHaveBeenCalledWith("player-1", 20);
+      await expect(useCase.execute({ playerId: "player-1" })).resolves.toEqual({
+        items: [bet],
+        nextCursor: null,
+      });
+      expect(betRepository.findPlayerBetsPage).toHaveBeenCalledWith({
+        playerId: "player-1",
+        limit: 20,
+        cursor: undefined,
+      });
+    });
+
+    test("clamps the limit and returns a next cursor when more items exist", async () => {
+      const betRepository = makeBetRepository({
+        findPlayerBetsPage: mock(async () => ({
+          items: [bet],
+          hasNextPage: true,
+        })),
+      });
+      const useCase = new GetMyBetsUseCase(betRepository);
+
+      const result = await useCase.execute({ playerId: "player-1", limit: "999" });
+
+      expect(result.items).toEqual([bet]);
+      expect(typeof result.nextCursor).toBe("string");
+      expect(betRepository.findPlayerBetsPage).toHaveBeenCalledWith({
+        playerId: "player-1",
+        limit: 50,
+        cursor: undefined,
+      });
+    });
+
+    test("decodes and passes a valid cursor", async () => {
+      const cursor = Buffer.from(
+        JSON.stringify({
+          placedAt: baseDate.toISOString(),
+          id: "bet-cursor",
+        }),
+        "utf8",
+      ).toString("base64url");
+      const betRepository = makeBetRepository();
+      const useCase = new GetMyBetsUseCase(betRepository);
+
+      await useCase.execute({ playerId: "player-1", limit: "10", cursor });
+
+      expect(betRepository.findPlayerBetsPage).toHaveBeenCalledWith({
+        playerId: "player-1",
+        limit: 10,
+        cursor: {
+          placedAt: baseDate,
+          id: "bet-cursor",
+        },
+      });
+    });
+
+    test("rejects an invalid cursor", async () => {
+      const useCase = new GetMyBetsUseCase(makeBetRepository());
+
+      await expect(
+        useCase.execute({ playerId: "player-1", cursor: "not-base64" }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    test("rejects an invalid limit", async () => {
+      const useCase = new GetMyBetsUseCase(makeBetRepository());
+
+      await expect(
+        useCase.execute({ playerId: "player-1", limit: "0" }),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 });

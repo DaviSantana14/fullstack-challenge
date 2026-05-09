@@ -3,6 +3,8 @@ import type {
   BetRepository,
   CreateAcceptedBetInput,
   CreatePendingBetInput,
+  FindPlayerBetsPageInput,
+  FindPlayerBetsPageResult,
   StartCashoutInput,
 } from "../../domain/bets/bet.repository";
 import type { BetRecord } from "../../domain/bets/bet.types";
@@ -26,14 +28,32 @@ export class PrismaBetRepository implements BetRepository {
     return bets as BetRecord[];
   }
 
-  async findByPlayerId(playerId: string, limit: number): Promise<BetRecord[]> {
+  async findPlayerBetsPage(
+    input: FindPlayerBetsPageInput,
+  ): Promise<FindPlayerBetsPageResult> {
     const bets = await this.prisma.bet.findMany({
-      where: { playerId },
-      orderBy: [{ placedAt: "desc" }],
-      take: limit,
+      where: {
+        playerId: input.playerId,
+        ...(input.cursor
+          ? {
+              OR: [
+                { placedAt: { lt: input.cursor.placedAt } },
+                {
+                  placedAt: input.cursor.placedAt,
+                  id: { lt: input.cursor.id },
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ placedAt: "desc" }, { id: "desc" }],
+      take: input.limit + 1,
     });
 
-    return bets as BetRecord[];
+    return {
+      items: bets.slice(0, input.limit) as BetRecord[],
+      hasNextPage: bets.length > input.limit,
+    };
   }
 
   async findByCorrelationId(correlationId: string): Promise<BetRecord | null> {

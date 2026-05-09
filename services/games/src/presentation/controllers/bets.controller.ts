@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
 import { CashoutCurrentBetUseCase } from "../../application/use-cases/cashout-current-bet.use-case";
 import { GetCurrentRoundBetsUseCase } from "../../application/use-cases/get-current-round-bets.use-case";
 import { GetMyBetsUseCase } from "../../application/use-cases/get-my-bets.use-case";
@@ -10,6 +10,7 @@ import { MvpAuthGuard } from "../auth/mvp-auth.guard";
 import { BetResponseDto } from "../dtos/bet-response.dto";
 import { BetResponseOrNullDto } from "../dtos/bet-response-or-null.dto";
 import type { CashoutRequestDto } from "../dtos/cashout-request.dto";
+import { PaginatedBetsResponseDto } from "../dtos/paginated-bets-response.dto";
 import type { PlaceBetRequestDto } from "../dtos/place-bet-request.dto";
 
 @Controller("bets")
@@ -44,10 +45,16 @@ export class BetsController {
   @UseGuards(MvpAuthGuard)
   async getMyBets(
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<BetResponseDto[]> {
-    const bets = await this.getMyBetsUseCase.execute(user.playerId);
+    @Query("limit") limit?: string,
+    @Query("cursor") cursor?: string,
+  ): Promise<PaginatedBetsResponseDto> {
+    const result = await this.getMyBetsUseCase.execute({
+      playerId: user.playerId,
+      limit,
+      cursor,
+    });
 
-    return bets.map(BetResponseDto.fromBet);
+    return PaginatedBetsResponseDto.fromResult(result);
   }
 
   @Get("me/current")

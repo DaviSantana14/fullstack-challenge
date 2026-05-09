@@ -49,6 +49,11 @@ interface CurrentBetResponse {
   bet: BetResponse | null;
 }
 
+interface PaginatedBetsResponse {
+  items: BetResponse[];
+  nextCursor: string | null;
+}
+
 interface WalletResponse {
   id: string;
   playerId: string;
@@ -195,9 +200,15 @@ async function getMyWallet(playerId: string): Promise<WalletResponse> {
 }
 
 async function getMyBets(playerId: string): Promise<BetResponse[]> {
-  return requestJson<BetResponse[]>("GET", `${KONG_URL}/games/bets/me`, {
-    headers: authHeaders(playerId),
-  });
+  const payload = await requestJson<PaginatedBetsResponse>(
+    "GET",
+    `${KONG_URL}/games/bets/me`,
+    {
+      headers: authHeaders(playerId),
+    },
+  );
+
+  return payload.items;
 }
 
 async function createPlayerWithWallet(
