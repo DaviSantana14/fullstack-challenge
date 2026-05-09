@@ -133,6 +133,26 @@ describe("PlaceBetUseCase", () => {
     );
   });
 
+  test("rejects amounts outside the allowed bet limits before creating a bet", async () => {
+    const betRepository = makeBetRepository();
+    const walletsClient = makeWalletsClient({});
+    const useCase = new PlaceBetUseCase(
+      makeRoundRepository(),
+      betRepository,
+      walletsClient,
+      makeEvents(),
+    );
+
+    await expect(useCase.execute("player-1", "99")).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(useCase.execute("player-1", "100001")).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(betRepository.createPendingBet).not.toHaveBeenCalled();
+    expect(walletsClient.send).not.toHaveBeenCalled();
+  });
+
   test("rejects when no betting round is accepting bets", async () => {
     const useCase = new PlaceBetUseCase(
       makeRoundRepository({ findCurrentBettingRound: mock(async () => null) }),
@@ -198,6 +218,46 @@ describe("PlaceBetUseCase", () => {
       }),
     );
     expect(events.emit).toHaveBeenCalledWith("bet:placed", { bet });
+  });
+
+  test("accepts minimum and maximum bet amounts", async () => {
+    const betRepository = makeBetRepository({
+      createPendingBet: mock(async (input) =>
+        makeBet({
+          amountInCents: input.amountInCents,
+          correlationId: input.correlationId,
+        }),
+      ),
+      markPendingBetAsAcceptedIfRoundActive: mock(async (_correlationId, acceptedAt) =>
+        makeBet({ status: "ACCEPTED", acceptedAt }),
+      ),
+    });
+    const useCase = new PlaceBetUseCase(
+      makeRoundRepository(),
+      betRepository,
+      makeWalletsClient({
+        correlationId: "correlation-1",
+        betId: "bet-1",
+        status: "APPROVED",
+        reason: null,
+        walletTransactionId: "transaction-1",
+        processedAt: now.toISOString(),
+      }),
+      makeEvents(),
+    );
+
+    await expect(useCase.execute("player-1", "100")).resolves.toMatchObject({
+      status: "ACCEPTED",
+    });
+    await expect(useCase.execute("player-2", "100000")).resolves.toMatchObject({
+      status: "ACCEPTED",
+    });
+    expect(betRepository.createPendingBet).toHaveBeenCalledWith(
+      expect.objectContaining({ amountInCents: BigInt(100) }),
+    );
+    expect(betRepository.createPendingBet).toHaveBeenCalledWith(
+      expect.objectContaining({ amountInCents: BigInt(100_000) }),
+    );
   });
 
   test("rejects the pending bet when wallet debit is rejected", async () => {

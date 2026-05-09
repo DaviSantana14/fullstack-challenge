@@ -25,6 +25,9 @@ import {
   type WalletDebitResponseMessage,
 } from "../../infrastructure/messaging/wallet-debit.contract";
 
+const MIN_BET_AMOUNT_IN_CENTS = BigInt(100);
+const MAX_BET_AMOUNT_IN_CENTS = BigInt(100_000);
+
 @Injectable()
 export class PlaceBetUseCase {
   constructor(
@@ -138,6 +141,14 @@ export class PlaceBetUseCase {
 
     if (amountInCents <= BigInt(0)) {
       throw new BadRequestException("amountInCents must be greater than zero.");
+    }
+
+    if (amountInCents < MIN_BET_AMOUNT_IN_CENTS) {
+      throw new BadRequestException("Minimum bet amount is R$ 1.00.");
+    }
+
+    if (amountInCents > MAX_BET_AMOUNT_IN_CENTS) {
+      throw new BadRequestException("Maximum bet amount is R$ 1000.00.");
     }
 
     return amountInCents;
