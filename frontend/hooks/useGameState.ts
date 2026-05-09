@@ -62,7 +62,7 @@ function useCurrentRoundBets() {
 
 export function useGameState() {
   const queryClient = useQueryClient();
-  const [betAmount, setBetAmount] = useState<string>("250");
+  const [betAmount, setBetAmount] = useState<string>("2.50");
 
   async function refreshGameState(options?: { wallet?: boolean; history?: boolean; bets?: boolean }) {
     await Promise.all([
@@ -201,8 +201,8 @@ export function useGameState() {
     canBet,
     canCashout,
     isPending,
-    placeBet: placeBetMutation.mutate,
-    cashout: cashoutMutation.mutate,
+    placeBet: placeBetMutation.mutateAsync,
+    cashout: cashoutMutation.mutateAsync,
     fundWallet: fundWalletMutation.mutateAsync,
     createRound: createRoundMutation.mutateAsync,
     startRound: startRoundMutation.mutateAsync,
@@ -213,6 +213,16 @@ export function useGameState() {
     isCreatingRound: createRoundMutation.isPending,
     isStartingRound: startRoundMutation.isPending,
     isCrashingRound: crashRoundMutation.isPending,
+    isRoundLoading: roundQuery.isLoading,
+    isBetLoading: myBetQuery.isLoading,
+    isWalletLoading: walletQuery.isLoading,
+    isHistoryLoading: historyQuery.isLoading,
+    isBetsLoading: currentRoundBetsQuery.isLoading,
+    roundError: roundQuery.error,
+    betError: myBetQuery.error,
+    walletError: walletQuery.error,
+    historyError: historyQuery.error,
+    betsError: currentRoundBetsQuery.error,
   };
 }
 
@@ -221,7 +231,6 @@ function useBettingCountdown(round: Round | null): number | null {
 
   useEffect(() => {
     if (!round || round.status !== "BETTING") {
-      setCountdownMs(null);
       return;
     }
 
@@ -232,20 +241,20 @@ function useBettingCountdown(round: Round | null): number | null {
       setCountdownMs(Math.max(0, remainingMs));
     }
 
-    tick();
+    const timeoutId = window.setTimeout(tick, 0);
     const intervalId = window.setInterval(tick, 250);
 
     return () => {
+      window.clearTimeout(timeoutId);
       window.clearInterval(intervalId);
     };
   }, [round]);
 
-  return countdownMs;
+  return round?.status === "BETTING" ? countdownMs : null;
 }
 
 function useMultiplier(round: Round | null): number {
   const [multiplier, setMultiplier] = useState(1.0);
-
   const calculateMultiplier = useCallback(() => {
     if (!round || round.status !== "IN_PROGRESS" || !round.startedAt) {
       return round?.crashPointHundredths ? round.crashPointHundredths / 100 : 1.0;
@@ -262,7 +271,6 @@ function useMultiplier(round: Round | null): number {
 
   useEffect(() => {
     if (!round || round.status !== "IN_PROGRESS") {
-      setMultiplier(calculateMultiplier());
       return;
     }
 
@@ -280,5 +288,5 @@ function useMultiplier(round: Round | null): number {
     };
   }, [round, calculateMultiplier]);
 
-  return multiplier;
+  return round?.status === "IN_PROGRESS" ? multiplier : calculateMultiplier();
 }

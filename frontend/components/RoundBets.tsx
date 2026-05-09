@@ -1,7 +1,18 @@
 import type { Bet } from "@/types/game";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface RoundBetsProps {
   bets: Bet[];
+  isLoading?: boolean;
 }
 
 function formatMoney(amountInCents: string | null): string {
@@ -31,75 +42,85 @@ function statusLabel(status: Bet["status"]): string {
   }
 }
 
-function statusClass(status: Bet["status"]): string {
+function statusVariant(status: Bet["status"]): string {
   switch (status) {
     case "ACCEPTED":
-      return "border-amber-500/30 bg-amber-500/10 text-amber-200";
+      return "border-accent/30 bg-accent/10 text-accent";
     case "CASHED_OUT":
-      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
+      return "border-primary/30 bg-primary/10 text-primary";
     case "LOST":
     case "REJECTED":
-      return "border-rose-500/30 bg-rose-500/10 text-rose-200";
+      return "border-destructive/30 bg-destructive/10 text-destructive";
     case "PENDING":
     case "CASHOUT_PENDING":
-      return "border-sky-500/30 bg-sky-500/10 text-sky-200";
+      return "border-sky-400/30 bg-sky-400/10 text-sky-300";
     default:
-      return "border-white/10 bg-white/5 text-neutral-200";
+      return "border-border bg-secondary text-secondary-foreground";
   }
 }
 
-export function RoundBets({ bets }: RoundBetsProps) {
+export function RoundBets({ bets, isLoading = false }: RoundBetsProps) {
   const visibleBets = bets.slice(0, 12);
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-black/40 p-4 backdrop-blur">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div>
-          <div className="text-xs uppercase tracking-wider text-neutral-500">
-            Apostas da rodada
-          </div>
-          <div className="mt-1 text-sm text-neutral-400">
-            {bets.length === 0 ? "Nenhuma aposta registrada" : `${bets.length} aposta${bets.length === 1 ? "" : "s"}`}
-          </div>
-        </div>
-        <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-neutral-300">
-          Live
-        </div>
-      </div>
+    <Card className="border-border bg-card/80 shadow-xl shadow-black/20 backdrop-blur">
+      <CardHeader>
+        <CardTitle>Apostas da rodada</CardTitle>
+        <CardDescription>
+          {bets.length === 0 ? "Nenhuma aposta registrada" : `${bets.length} aposta${bets.length === 1 ? "" : "s"}`}
+        </CardDescription>
+        <CardAction>
+          <Badge variant="outline" className="border-primary/30 text-primary">
+            Live
+          </Badge>
+        </CardAction>
+      </CardHeader>
 
-      <div className="space-y-2">
-        {visibleBets.map((bet) => (
-          <div
-            key={bet.id}
-            className="grid grid-cols-[1fr_auto] gap-3 rounded-xl bg-white/[0.04] px-3 py-2"
-          >
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-white">
-                {bet.playerId}
+      <CardContent className="flex flex-col gap-2">
+        {isLoading &&
+          Array.from({ length: 5 }).map((_, index) => (
+            <Skeleton key={index} className="h-14 rounded-xl" />
+          ))}
+
+        {!isLoading && visibleBets.length === 0 && (
+          <div className="rounded-xl border border-dashed border-border bg-muted/30 px-3 py-6 text-center text-sm text-muted-foreground">
+            Aguardando as primeiras apostas.
+          </div>
+        )}
+
+        {!isLoading &&
+          visibleBets.map((bet) => (
+            <div
+              key={bet.id}
+              className="grid min-h-14 grid-cols-[1fr_auto] gap-3 rounded-xl bg-secondary/60 px-3 py-2 ring-1 ring-border/70"
+            >
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-foreground">
+                  {bet.playerId}
+                </div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  {formatMoney(bet.amountInCents)}
+                </div>
               </div>
-              <div className="mt-0.5 text-xs text-neutral-500">
-                {formatMoney(bet.amountInCents)}
+
+              <div className="flex flex-col items-end gap-1">
+                <Badge variant="outline" className={statusVariant(bet.status)}>
+                  {statusLabel(bet.status)}
+                </Badge>
+                {bet.cashoutMultiplierHundredths && (
+                  <span className="text-xs text-primary">
+                    {(bet.cashoutMultiplierHundredths / 100).toFixed(2)}x
+                  </span>
+                )}
+                {bet.payoutInCents && (
+                  <span className="text-xs text-primary">
+                    {formatMoney(bet.payoutInCents)}
+                  </span>
+                )}
               </div>
             </div>
-
-            <div className="flex flex-col items-end gap-1">
-              <span className={`rounded-full border px-2 py-0.5 text-xs ${statusClass(bet.status)}`}>
-                {statusLabel(bet.status)}
-              </span>
-              {bet.cashoutMultiplierHundredths && (
-                <span className="text-xs text-emerald-300">
-                  {(bet.cashoutMultiplierHundredths / 100).toFixed(2)}x
-                </span>
-              )}
-              {bet.payoutInCents && (
-                <span className="text-xs text-emerald-400">
-                  {formatMoney(bet.payoutInCents)}
-                </span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
+          ))}
+      </CardContent>
+    </Card>
   );
 }

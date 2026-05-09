@@ -11,6 +11,21 @@ import { WalletDisplay } from "@/components/WalletDisplay";
 import { CrashHistory } from "@/components/CrashHistory";
 import { RoundBets } from "@/components/RoundBets";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { Activity, Gamepad2, Radio, ShieldCheck } from "lucide-react";
 
 export default function GamePage() {
   const router = useRouter();
@@ -48,6 +63,16 @@ export default function GamePage() {
     isCreatingRound,
     isStartingRound,
     isCrashingRound,
+    isRoundLoading,
+    isBetLoading,
+    isWalletLoading,
+    isHistoryLoading,
+    isBetsLoading,
+    roundError,
+    betError,
+    walletError,
+    historyError,
+    betsError,
   } = useGameState();
 
   // Toast notifications for bet status changes
@@ -62,6 +87,17 @@ export default function GamePage() {
       toast.error("A rodada crashou! Aposta perdida.");
     }
   }, [myBet?.status, myBet?.payoutInCents]);
+
+  useEffect(() => {
+    const errors = [roundError, betError, walletError, historyError, betsError].filter(Boolean);
+
+    if (errors.length === 0) {
+      return;
+    }
+
+    const firstError = errors[0];
+    toast.error(firstError instanceof Error ? firstError.message : "Erro ao carregar dados do jogo.");
+  }, [roundError, betError, walletError, historyError, betsError]);
 
   async function handleDevFund() {
     const playerId = getPlayerId();
@@ -143,12 +179,12 @@ export default function GamePage() {
 
   const roundStatusColor =
     round?.status === "BETTING"
-      ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+      ? "border-accent/30 bg-accent/10 text-accent"
       : round?.status === "IN_PROGRESS"
-        ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+        ? "border-primary/30 bg-primary/10 text-primary"
         : round?.status === "CRASHED"
-          ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
-          : "bg-white/5 text-neutral-300 border-white/10";
+          ? "border-destructive/30 bg-destructive/10 text-destructive"
+          : "border-border bg-secondary text-secondary-foreground";
 
   const canCreateRound = !round || round.status === "CRASHED";
   const canStartRound = round?.status === "BETTING";
@@ -158,197 +194,254 @@ export default function GamePage() {
     bettingCountdownMs === null ? null : Math.ceil(bettingCountdownMs / 1000);
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#0a0a0a] text-white">
-      {/* Header */}
-      <header className="flex items-center justify-between border-b border-white/10 bg-black/40 px-4 py-3 backdrop-blur sm:px-6">
-        <div className="flex items-center gap-3">
-          <span className="text-xl">🎰</span>
-          <h1 className="text-lg font-bold">Crash Game</h1>
+    <main className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-30 border-b border-border bg-background/75 px-4 py-3 backdrop-blur-xl sm:px-6">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+              <Gamepad2 aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-semibold sm:text-lg">Crash Game</h1>
+              <p className="hidden text-xs text-muted-foreground sm:block">
+                Multiplayer em tempo real
+              </p>
+            </div>
+          </div>
+          <WalletDisplay
+            balanceInCents={wallet?.balanceInCents ?? null}
+            isLoading={isWalletLoading}
+          />
         </div>
-        <WalletDisplay balanceInCents={wallet?.balanceInCents ?? null} />
       </header>
 
-      <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-4 sm:px-6">
-        {/* Crash history */}
-        <div className="mb-4">
-          <CrashHistory history={history} />
-        </div>
+      <div className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_23rem] lg:py-6">
+        <section className="flex min-w-0 flex-col gap-4">
+          <Card className="border-border bg-card/80 shadow-xl shadow-black/20 backdrop-blur">
+            <CardHeader>
+              <CardTitle>Histórico</CardTitle>
+              <CardDescription>Últimos crashes encerrados</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CrashHistory history={history} isLoading={isHistoryLoading} />
+            </CardContent>
+          </Card>
 
-        {/* Game panel */}
-        <div className="mb-4">
           <GamePanel
             multiplier={multiplier}
             status={round?.status ?? null}
             crashPoint={round?.crashPointHundredths ?? null}
+            isLoading={isRoundLoading}
           />
-        </div>
 
-        <div className="mb-4 rounded-2xl border border-white/10 bg-black/40 p-4 backdrop-blur">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="text-xs uppercase tracking-wider text-neutral-500">Rodada atual</div>
-              <div className="mt-1 text-lg font-semibold text-white">
-                {round ? `#${round.roundNumber}` : "Nenhuma rodada ativa"}
+          <Card className="border-border bg-card/80 shadow-xl shadow-black/20 backdrop-blur">
+            <CardHeader>
+              <CardTitle>Rodada atual</CardTitle>
+              <CardDescription>
+                {isRoundLoading
+                  ? "Sincronizando estado"
+                  : round
+                    ? `Rodada #${round.roundNumber}`
+                    : "Nenhuma rodada ativa"}
+              </CardDescription>
+              <CardAction>
+                <Badge variant="outline" className={cn("border", roundStatusColor)}>
+                  <Radio data-icon="inline-start" />
+                  {roundStatusLabel}
+                </Badge>
+              </CardAction>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <MetricCard
+                  label="Fecha em"
+                  value={bettingCountdownSeconds === null ? "-" : `${bettingCountdownSeconds}s`}
+                  isLoading={isRoundLoading}
+                />
+                <MetricCard label="Apostar" value={canBet ? "Sim" : "Não"} isLoading={isRoundLoading || isBetLoading} />
+                <MetricCard label="Cashout" value={canCashout ? "Sim" : "Não"} isLoading={isRoundLoading || isBetLoading} />
+                <MetricCard label="Sua bet" value={myBet?.status ?? "Nenhuma"} isLoading={isBetLoading} />
               </div>
-            </div>
-            <div className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${roundStatusColor}`}>
-              {roundStatusLabel}
-            </div>
-          </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
-            <div className="rounded-xl bg-white/5 p-3">
-              <div className="text-xs text-neutral-500">Apostas fecham em</div>
-              <div className="mt-1 text-sm font-semibold text-white">
-                {bettingCountdownSeconds === null ? "-" : `${bettingCountdownSeconds}s`}
-              </div>
-            </div>
-            <div className="rounded-xl bg-white/5 p-3">
-              <div className="text-xs text-neutral-500">Pode apostar?</div>
-              <div className="mt-1 text-sm font-semibold text-white">{canBet ? "Sim" : "Não"}</div>
-            </div>
-            <div className="rounded-xl bg-white/5 p-3">
-              <div className="text-xs text-neutral-500">Pode cashout?</div>
-              <div className="mt-1 text-sm font-semibold text-white">{canCashout ? "Sim" : "Não"}</div>
-            </div>
-            <div className="rounded-xl bg-white/5 p-3">
-              <div className="text-xs text-neutral-500">Sua bet</div>
-              <div className="mt-1 text-sm font-semibold text-white">{myBet?.status ?? "Nenhuma"}</div>
-            </div>
-          </div>
-        </div>
+              {round?.serverSeedHash && (
+                <>
+                  <Separator className="my-4" />
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <ShieldCheck aria-hidden="true" />
+                    <span className="truncate">Seed hash: {round.serverSeedHash}</span>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </section>
 
-        <div className="mb-4">
-          <RoundBets bets={bets} />
-        </div>
+        <aside className="flex min-w-0 flex-col gap-4">
+          <BetControls
+            betAmount={betAmount}
+            setBetAmount={setBetAmount}
+            canBet={canBet}
+            canCashout={canCashout}
+            isPending={isPending}
+            multiplier={multiplier}
+            onPlaceBet={(amountInCents) => placeBet(amountInCents)}
+            onCashout={cashout}
+            isPlacingBet={isPlacingBet}
+            isCashingOut={isCashingOut}
+            myBetAmount={myBet?.amountInCents ?? null}
+            myBetStatus={myBet?.status ?? null}
+          />
 
-        {/* Seed hash display */}
-        {round?.serverSeedHash && (
-          <div className="mb-4 text-center">
-            <span className="text-xs text-neutral-500">
-              Seed: {round.serverSeedHash.slice(0, 16)}...
-            </span>
-          </div>
-        )}
-
-        {/* Bet controls */}
-        <BetControls
-          betAmount={betAmount}
-          setBetAmount={setBetAmount}
-          canBet={canBet}
-          canCashout={canCashout}
-          isPending={isPending}
-          multiplier={multiplier}
-          onPlaceBet={() => placeBet(betAmount)}
-          onCashout={cashout}
-          isPlacingBet={isPlacingBet}
-          isCashingOut={isCashingOut}
-          myBetAmount={myBet?.amountInCents ?? null}
-          myBetStatus={myBet?.status ?? null}
-        />
-
-        {/* My bet info */}
-        {myBet && (
-          <div className="mt-4 rounded-xl border border-white/10 bg-black/40 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-xs text-neutral-400">Sua aposta</div>
-                <div className="text-sm font-semibold">
+          {myBet && (
+            <Card className="border-border bg-card/80 shadow-xl shadow-black/20 backdrop-blur">
+              <CardHeader>
+                <CardTitle>Sua aposta</CardTitle>
+                <CardDescription>
                   R$ {(parseInt(myBet.amountInCents) / 100).toFixed(2)}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-xs text-neutral-400">Status</div>
-                <div
-                  className={`text-sm font-semibold ${myBet.status === "CASHED_OUT"
-                      ? "text-emerald-400"
-                      : myBet.status === "LOST"
-                        ? "text-red-400"
-                        : myBet.status === "ACCEPTED"
-                          ? "text-yellow-400"
-                          : "text-neutral-400"
-                    }`}
-                >
-                  {myBet.status === "CASHED_OUT"
-                    ? "CASHOUT"
-                    : myBet.status === "LOST"
-                      ? "PERDIDO"
-                      : myBet.status === "ACCEPTED"
-                        ? "ATIVO"
-                        : myBet.status === "PENDING"
-                          ? "PENDENTE"
-                          : myBet.status === "CASHOUT_PENDING"
-                            ? "PROCESSANDO"
-                            : myBet.status}
-                </div>
-              </div>
-            </div>
-            {myBet.cashoutMultiplierHundredths && (
-              <div className="mt-2 text-xs text-emerald-400">
-                Multiplicador: {(myBet.cashoutMultiplierHundredths / 100).toFixed(2)}x
-              </div>
-            )}
-            {myBet.payoutInCents && (
-              <div className="mt-1 text-xs text-emerald-400">
-                Payout: R$ {(parseInt(myBet.payoutInCents) / 100).toFixed(2)}
-              </div>
-            )}
-          </div>
-        )}
+                </CardDescription>
+                <CardAction>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      myBet.status === "CASHED_OUT" && "border-primary/30 bg-primary/10 text-primary",
+                      myBet.status === "LOST" && "border-destructive/30 bg-destructive/10 text-destructive",
+                      myBet.status === "ACCEPTED" && "border-accent/30 bg-accent/10 text-accent",
+                    )}
+                  >
+                    {formatBetStatus(myBet.status)}
+                  </Badge>
+                </CardAction>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2 text-sm">
+                {myBet.cashoutMultiplierHundredths && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">Multiplicador</span>
+                    <span className="font-semibold text-primary">
+                      {(myBet.cashoutMultiplierHundredths / 100).toFixed(2)}x
+                    </span>
+                  </div>
+                )}
+                {myBet.payoutInCents && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">Payout</span>
+                    <span className="font-semibold text-primary">
+                      R$ {(parseInt(myBet.payoutInCents) / 100).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {myBet.rejectionReason && (
+                  <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-destructive">
+                    {myBet.rejectionReason}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-        {showDevTools && (
-          <div className="mt-4 rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 p-4">
-            <div className="mb-3 text-sm font-semibold text-amber-300">Dev tools</div>
-            <div className="mb-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleCreateRound}
-                disabled={isRoundActionPending || !canCreateRound}
-                className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-sky-500 disabled:opacity-50"
-              >
-                {isCreatingRound ? "Criando..." : "Criar round"}
-              </button>
-              <button
-                type="button"
-                onClick={handleStartRound}
-                disabled={isRoundActionPending || !canStartRound}
-                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
-              >
-                {isStartingRound ? "Iniciando..." : "Iniciar round"}
-              </button>
-              <button
-                type="button"
-                onClick={handleCrashRound}
-                disabled={isRoundActionPending || !canCrashRound}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-rose-500 disabled:opacity-50"
-              >
-                {isCrashingRound ? "Crashando..." : "Crashar round"}
-              </button>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <input
-                type="number"
-                min="1"
-                value={devFundAmount}
-                onChange={(e) => setDevFundAmount(e.target.value)}
-                className="flex-1 rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50"
-                placeholder="amountInCents"
-              />
-              <button
-                type="button"
-                onClick={handleDevFund}
-                disabled={isFundingWallet}
-                className="rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-amber-400 disabled:opacity-50"
-              >
-                {isFundingWallet ? "Adicionando..." : "Adicionar saldo"}
-              </button>
-            </div>
-            <div className="mt-2 text-xs text-neutral-500">
-              Valor em centavos. Ex.: 1000 = R$ 10,00
-            </div>
-          </div>
-        )}
+          <RoundBets bets={bets} isLoading={isBetsLoading} />
+
+          {showDevTools && (
+            <Card className="border-dashed border-accent/35 bg-accent/5 shadow-xl shadow-black/20">
+              <CardHeader>
+                <CardTitle>Dev tools</CardTitle>
+                <CardDescription>Controles locais para testar rodada e saldo.</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCreateRound}
+                    disabled={isRoundActionPending || !canCreateRound}
+                  >
+                    {isCreatingRound ? "Criando..." : "Criar round"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleStartRound}
+                    disabled={isRoundActionPending || !canStartRound}
+                  >
+                    {isStartingRound ? "Iniciando..." : "Iniciar round"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={handleCrashRound}
+                    disabled={isRoundActionPending || !canCrashRound}
+                  >
+                    {isCrashingRound ? "Crashando..." : "Crashar round"}
+                  </Button>
+                </div>
+                <Separator />
+                <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+                  <Input
+                    type="number"
+                    min="1"
+                    value={devFundAmount}
+                    onChange={(e) => setDevFundAmount(e.target.value)}
+                    placeholder="amountInCents"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleDevFund}
+                    disabled={isFundingWallet}
+                    className="sm:min-w-36 lg:min-w-0"
+                  >
+                    {isFundingWallet ? "Adicionando..." : "Adicionar saldo"}
+                  </Button>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Valor em centavos. Ex.: 1000 = R$ 10,00
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </aside>
       </div>
     </main>
   );
+}
+
+function MetricCard({
+  label,
+  value,
+  isLoading,
+}: {
+  label: string;
+  value: string;
+  isLoading?: boolean;
+}) {
+  return (
+    <div className="min-h-20 rounded-xl border border-border bg-secondary/60 p-3">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Activity aria-hidden="true" />
+        {label}
+      </div>
+      {isLoading ? (
+        <Skeleton className="mt-3 h-5 w-16" />
+      ) : (
+        <div className="mt-2 truncate text-sm font-semibold text-foreground">{value}</div>
+      )}
+    </div>
+  );
+}
+
+function formatBetStatus(status: string): string {
+  switch (status) {
+    case "CASHED_OUT":
+      return "Cashout";
+    case "LOST":
+      return "Perdida";
+    case "ACCEPTED":
+      return "Ativa";
+    case "PENDING":
+      return "Pendente";
+    case "CASHOUT_PENDING":
+      return "Processando";
+    case "REJECTED":
+      return "Rejeitada";
+    default:
+      return status;
+  }
 }

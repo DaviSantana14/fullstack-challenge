@@ -3,8 +3,18 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { setPlayerId } from "@/lib/auth";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiPost } from "@/lib/api";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Gamepad2, LogIn } from "lucide-react";
 
 export default function Home() {
   const [nickname, setNickname] = useState("");
@@ -39,45 +49,40 @@ export default function Home() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.18),_transparent_35%),radial-gradient(circle_at_bottom,_rgba(234,179,8,0.16),_transparent_30%),#0a0a0a] px-6 py-16">
-      <section className="w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl shadow-black/40 backdrop-blur">
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-white">
-            🎰 Crash Game
-          </h1>
-          <p className="mt-2 text-neutral-400">
-            Multiplayer em tempo real
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label
-              htmlFor="nickname"
-              className="block text-sm font-medium text-neutral-300 mb-2"
-            >
-              Digite seu nickname para jogar
-            </label>
-            <input
-              id="nickname"
-              type="text"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder="Ex: jogador123"
-              className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white placeholder-neutral-500 outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
-              disabled={isLoading}
-            />
+    <main className="flex min-h-screen items-center justify-center bg-background px-6 py-16 text-foreground">
+      <Card className="w-full max-w-md border-border bg-card/85 shadow-2xl shadow-black/40 backdrop-blur">
+        <CardHeader className="items-center text-center">
+          <div className="mb-2 flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
+            <Gamepad2 aria-hidden="true" />
           </div>
+          <CardTitle className="text-3xl font-black">Crash Game</CardTitle>
+          <CardDescription>Multiplayer em tempo real</CardDescription>
+        </CardHeader>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/20 transition-all hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? "Entrando..." : "Entrar no Jogo"}
-          </button>
-        </form>
-      </section>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="nickname" className="text-sm font-medium text-muted-foreground">
+                Digite seu nickname para jogar
+              </label>
+              <Input
+                id="nickname"
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="Ex: jogador123"
+                disabled={isLoading}
+                className="h-11"
+              />
+            </div>
+
+            <Button type="submit" disabled={isLoading} className="h-11 w-full shadow-lg shadow-primary/20">
+              <LogIn data-icon="inline-start" />
+              {isLoading ? "Entrando..." : "Entrar no jogo"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </main>
   );
 }
