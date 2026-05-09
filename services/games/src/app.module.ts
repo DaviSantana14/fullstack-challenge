@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ClientsModule, Transport } from "@nestjs/microservices";
 import { GameEventsService } from "./application/events/game-events.service";
+import { RoundEngineService } from "./application/engine/round-engine.service";
 import { CashoutCurrentBetUseCase } from "./application/use-cases/cashout-current-bet.use-case";
 import { CrashCurrentRoundUseCase } from "./application/use-cases/crash-current-round.use-case";
 import { CreateRoundUseCase } from "./application/use-cases/create-round.use-case";
@@ -52,6 +53,7 @@ import { MvpAuthGuard } from "./presentation/auth/mvp-auth.guard";
   providers: [
     PrismaService,
     GameEventsService,
+    RoundEngineService,
     GameGateway,
     MvpAuthGuard,
     CashoutCurrentBetUseCase,

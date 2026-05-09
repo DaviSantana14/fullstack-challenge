@@ -7,6 +7,7 @@ import {
 } from "../../domain/rounds/round.repository";
 import type { RoundRecord } from "../../domain/rounds/round.types";
 import { createHash, randomBytes } from "crypto";
+import { getRoundEngineConfig } from "../engine/round-engine.config";
 
 @Injectable()
 export class CreateRoundUseCase {
@@ -17,17 +18,19 @@ export class CreateRoundUseCase {
   ) {}
 
   async execute(): Promise<RoundRecord> {
-    const existingRound = await this.roundRepository.findCurrentBettingRound();
+    const existingRound = await this.roundRepository.findCurrentActiveRound();
 
     if (existingRound) {
-      throw new ConflictException("A betting round is already active.");
+      throw new ConflictException("A round is already active.");
     }
 
     const roundNumber = await this.roundRepository.getNextRoundNumber();
     const serverSeed = randomBytes(32).toString("hex");
     const serverSeedHash = createHash("sha256").update(serverSeed).digest("hex");
     const now = new Date();
-    const bettingClosesAt = new Date(now.getTime() + 30_000);
+    const bettingClosesAt = new Date(
+      now.getTime() + getRoundEngineConfig().bettingWindowMs,
+    );
 
     try {
       const round = await this.roundRepository.createBettingRound({
