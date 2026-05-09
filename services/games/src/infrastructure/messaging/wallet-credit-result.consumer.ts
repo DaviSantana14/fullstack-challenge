@@ -1,5 +1,6 @@
 import { Controller, Inject } from "@nestjs/common";
 import { Ctx, EventPattern, Payload, RmqContext } from "@nestjs/microservices";
+import { GameEventsService } from "../../application/events/game-events.service";
 import { BET_REPOSITORY, type BetRepository } from "../../domain/bets/bet.repository";
 import {
   WALLET_CREDIT_RESULT_EVENT,
@@ -11,6 +12,7 @@ export class WalletCreditResultConsumer {
   constructor(
     @Inject(BET_REPOSITORY)
     private readonly betRepository: BetRepository,
+    private readonly gameEvents: GameEventsService,
   ) {}
 
   @EventPattern(WALLET_CREDIT_RESULT_EVENT)
@@ -23,10 +25,14 @@ export class WalletCreditResultConsumer {
 
     try {
       if (message.status === "APPROVED") {
-        await this.betRepository.markCashoutPendingBetAsCashedOut(
+        const cashedOutBet = await this.betRepository.markCashoutPendingBetAsCashedOut(
           message.correlationId,
           new Date(message.processedAt),
         );
+
+        if (cashedOutBet?.status === "CASHED_OUT") {
+          this.gameEvents.emit("bet:cashed_out", { bet: cashedOutBet });
+        }
       } else {
         const revertedBet =
           await this.betRepository.markCashoutPendingBetAsAcceptedIfRoundInProgress(

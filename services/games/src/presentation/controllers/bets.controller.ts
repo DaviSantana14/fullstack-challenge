@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
 import { CashoutCurrentBetUseCase } from "../../application/use-cases/cashout-current-bet.use-case";
+import { GetCurrentRoundBetsUseCase } from "../../application/use-cases/get-current-round-bets.use-case";
 import { GetMyCurrentBetUseCase } from "../../application/use-cases/get-my-current-bet.use-case";
 import { PlaceBetUseCase } from "../../application/use-cases/place-bet.use-case";
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -14,6 +15,7 @@ import type { PlaceBetRequestDto } from "../dtos/place-bet-request.dto";
 export class BetsController {
   constructor(
     private readonly placeBetUseCase: PlaceBetUseCase,
+    private readonly getCurrentRoundBetsUseCase: GetCurrentRoundBetsUseCase,
     private readonly getMyCurrentBetUseCase: GetMyCurrentBetUseCase,
     private readonly cashoutCurrentBetUseCase: CashoutCurrentBetUseCase,
   ) {}
@@ -27,6 +29,13 @@ export class BetsController {
     const bet = await this.placeBetUseCase.execute(user.playerId, body.amountInCents);
 
     return BetResponseDto.fromBet(bet);
+  }
+
+  @Get("current-round")
+  async getCurrentRoundBets(): Promise<BetResponseDto[]> {
+    const bets = await this.getCurrentRoundBetsUseCase.execute();
+
+    return bets.map(BetResponseDto.fromBet);
   }
 
   @Get("me/current")

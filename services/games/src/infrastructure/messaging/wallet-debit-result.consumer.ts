@@ -6,12 +6,14 @@ import {
 } from "./wallet-debit.contract";
 import { BET_REPOSITORY, type BetRepository } from "../../domain/bets/bet.repository";
 import { Inject } from "@nestjs/common";
+import { GameEventsService } from "../../application/events/game-events.service";
 
 @Controller()
 export class WalletDebitResultConsumer {
   constructor(
     @Inject(BET_REPOSITORY)
     private readonly betRepository: BetRepository,
+    private readonly gameEvents: GameEventsService,
   ) {}
 
   @EventPattern(WALLET_DEBIT_RESULT_EVENT)
@@ -47,8 +49,10 @@ export class WalletDebitResultConsumer {
             await this.betRepository.markPendingBetAsRejected(
               message.correlationId,
               "ROUND_CLOSED",
-            );
+              );
           }
+        } else {
+          this.gameEvents.emit("bet:placed", { bet: acceptedBet });
         }
       } else {
         await this.betRepository.markPendingBetAsRejected(

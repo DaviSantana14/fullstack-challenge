@@ -23,6 +23,7 @@ export interface StartCashoutInput {
 }
 
 export interface BetRepository {
+  findByRoundId(roundId: string): Promise<BetRecord[]>;
   findByRoundIdAndPlayerId(roundId: string, playerId: string): Promise<BetRecord | null>;
   findByCorrelationId(correlationId: string): Promise<BetRecord | null>;
   createPendingBet(input: CreatePendingBetInput): Promise<BetRecord>;

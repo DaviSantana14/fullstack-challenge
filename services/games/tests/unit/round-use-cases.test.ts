@@ -9,6 +9,7 @@ import { CreateRoundUseCase } from "../../src/application/use-cases/create-round
 import { StartCurrentRoundUseCase } from "../../src/application/use-cases/start-current-round.use-case";
 import { CrashCurrentRoundUseCase } from "../../src/application/use-cases/crash-current-round.use-case";
 import { VerifyRoundUseCase } from "../../src/application/use-cases/verify-round.use-case";
+import { GetCurrentRoundBetsUseCase } from "../../src/application/use-cases/get-current-round-bets.use-case";
 import type { GameEventsService } from "../../src/application/events/game-events.service";
 
 const baseDate = new Date("2026-05-09T12:00:00.000Z");
@@ -69,6 +70,7 @@ function makeBetRepository(
   overrides: Partial<Record<keyof BetRepository, unknown>> = {},
 ): BetRepository {
   return {
+    findByRoundId: mock(async () => []),
     findByRoundIdAndPlayerId: mock(async () => null),
     findByCorrelationId: mock(async () => null),
     createPendingBet: mock(),
@@ -230,6 +232,50 @@ describe("round use cases", () => {
       expect(result.isValid).toBe(true);
       expect(result.serverSeedHash).toBe(round.serverSeedHash);
       expect(result.calculatedCrashPointHundredths).toBe(round.crashPointHundredths);
+    });
+  });
+
+  describe("GetCurrentRoundBetsUseCase", () => {
+    test("returns an empty list when there is no active round", async () => {
+      const betRepository = makeBetRepository();
+      const useCase = new GetCurrentRoundBetsUseCase(makeRoundRepository(), betRepository);
+
+      await expect(useCase.execute()).resolves.toEqual([]);
+      expect(betRepository.findByRoundId).not.toHaveBeenCalled();
+    });
+
+    test("returns bets for the current active round", async () => {
+      const round = makeRound({ status: "BETTING" });
+      const bets = [
+        {
+          id: "bet-1",
+          roundId: round.id,
+          playerId: "player-1",
+          amountInCents: BigInt(1000),
+          status: "ACCEPTED" as const,
+          cashoutMultiplierHundredths: null,
+          payoutInCents: null,
+          correlationId: "correlation-1",
+          cashoutCorrelationId: null,
+          rejectionReason: null,
+          placedAt: baseDate,
+          acceptedAt: baseDate,
+          cashedOutAt: null,
+          settledAt: null,
+          createdAt: baseDate,
+          updatedAt: baseDate,
+        },
+      ];
+      const betRepository = makeBetRepository({
+        findByRoundId: mock(async () => bets),
+      });
+      const useCase = new GetCurrentRoundBetsUseCase(
+        makeRoundRepository({ findCurrentActiveRound: mock(async () => round) }),
+        betRepository,
+      );
+
+      await expect(useCase.execute()).resolves.toBe(bets);
+      expect(betRepository.findByRoundId).toHaveBeenCalledWith(round.id);
     });
   });
 });

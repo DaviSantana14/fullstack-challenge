@@ -73,6 +73,7 @@ function makeBetRepository(
   overrides: Partial<Record<keyof BetRepository, unknown>> = {},
 ): BetRepository {
   return {
+    findByRoundId: mock(async () => []),
     findByRoundIdAndPlayerId: mock(async () => null),
     findByCorrelationId: mock(async () => null),
     createPendingBet: mock(async () => makeBet()),

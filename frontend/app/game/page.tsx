@@ -9,6 +9,7 @@ import { GamePanel } from "@/components/GamePanel";
 import { BetControls } from "@/components/BetControls";
 import { WalletDisplay } from "@/components/WalletDisplay";
 import { CrashHistory } from "@/components/CrashHistory";
+import { RoundBets } from "@/components/RoundBets";
 import { toast } from "sonner";
 
 export default function GamePage() {
@@ -27,6 +28,8 @@ export default function GamePage() {
     myBet,
     wallet,
     history,
+    bets,
+    bettingCountdownMs,
     betAmount,
     setBetAmount,
     multiplier,
@@ -131,26 +134,28 @@ export default function GamePage() {
     !round
       ? "Sem rodada ativa"
       : round.status === "BETTING"
-      ? "Aceitando apostas"
-      : round.status === "IN_PROGRESS"
-      ? "Em andamento"
-      : round.status === "CRASHED"
-      ? "Crashou"
-      : "Status desconhecido";
+        ? "Aceitando apostas"
+        : round.status === "IN_PROGRESS"
+          ? "Em andamento"
+          : round.status === "CRASHED"
+            ? "Crashou"
+            : "Status desconhecido";
 
   const roundStatusColor =
     round?.status === "BETTING"
       ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
       : round?.status === "IN_PROGRESS"
-      ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-      : round?.status === "CRASHED"
-      ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
-      : "bg-white/5 text-neutral-300 border-white/10";
+        ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+        : round?.status === "CRASHED"
+          ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
+          : "bg-white/5 text-neutral-300 border-white/10";
 
   const canCreateRound = !round || round.status === "CRASHED";
   const canStartRound = round?.status === "BETTING";
   const canCrashRound = round?.status === "IN_PROGRESS";
   const isRoundActionPending = isCreatingRound || isStartingRound || isCrashingRound;
+  const bettingCountdownSeconds =
+    bettingCountdownMs === null ? null : Math.ceil(bettingCountdownMs / 1000);
 
   return (
     <main className="flex min-h-screen flex-col bg-[#0a0a0a] text-white">
@@ -191,7 +196,13 @@ export default function GamePage() {
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl bg-white/5 p-3">
+              <div className="text-xs text-neutral-500">Apostas fecham em</div>
+              <div className="mt-1 text-sm font-semibold text-white">
+                {bettingCountdownSeconds === null ? "-" : `${bettingCountdownSeconds}s`}
+              </div>
+            </div>
             <div className="rounded-xl bg-white/5 p-3">
               <div className="text-xs text-neutral-500">Pode apostar?</div>
               <div className="mt-1 text-sm font-semibold text-white">{canBet ? "Sim" : "Não"}</div>
@@ -205,6 +216,10 @@ export default function GamePage() {
               <div className="mt-1 text-sm font-semibold text-white">{myBet?.status ?? "Nenhuma"}</div>
             </div>
           </div>
+        </div>
+
+        <div className="mb-4">
+          <RoundBets bets={bets} />
         </div>
 
         {/* Seed hash display */}
@@ -245,27 +260,26 @@ export default function GamePage() {
               <div className="text-right">
                 <div className="text-xs text-neutral-400">Status</div>
                 <div
-                  className={`text-sm font-semibold ${
-                    myBet.status === "CASHED_OUT"
+                  className={`text-sm font-semibold ${myBet.status === "CASHED_OUT"
                       ? "text-emerald-400"
                       : myBet.status === "LOST"
-                      ? "text-red-400"
-                      : myBet.status === "ACCEPTED"
-                      ? "text-yellow-400"
-                      : "text-neutral-400"
-                  }`}
+                        ? "text-red-400"
+                        : myBet.status === "ACCEPTED"
+                          ? "text-yellow-400"
+                          : "text-neutral-400"
+                    }`}
                 >
                   {myBet.status === "CASHED_OUT"
                     ? "CASHOUT"
                     : myBet.status === "LOST"
-                    ? "PERDIDO"
-                    : myBet.status === "ACCEPTED"
-                    ? "ATIVO"
-                    : myBet.status === "PENDING"
-                    ? "PENDENTE"
-                    : myBet.status === "CASHOUT_PENDING"
-                    ? "PROCESSANDO"
-                    : myBet.status}
+                      ? "PERDIDO"
+                      : myBet.status === "ACCEPTED"
+                        ? "ATIVO"
+                        : myBet.status === "PENDING"
+                          ? "PENDENTE"
+                          : myBet.status === "CASHOUT_PENDING"
+                            ? "PROCESSANDO"
+                            : myBet.status}
                 </div>
               </div>
             </div>

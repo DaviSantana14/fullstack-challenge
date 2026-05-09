@@ -4,6 +4,7 @@ import type { BetRepository } from "../../src/domain/bets/bet.repository";
 import type { BetRecord } from "../../src/domain/bets/bet.types";
 import { WalletCreditResultConsumer } from "../../src/infrastructure/messaging/wallet-credit-result.consumer";
 import { WalletDebitResultConsumer } from "../../src/infrastructure/messaging/wallet-debit-result.consumer";
+import type { GameEventsService } from "../../src/application/events/game-events.service";
 import type {
   WalletCreditResultEventMessage,
   WalletDebitResultEventMessage,
@@ -37,6 +38,7 @@ function makeBetRepository(
   overrides: Partial<Record<keyof BetRepository, unknown>> = {},
 ): BetRepository {
   return {
+    findByRoundId: mock(async () => []),
     findByRoundIdAndPlayerId: mock(async () => null),
     findByCorrelationId: mock(async () => makeBet()),
     createPendingBet: mock(),
@@ -62,6 +64,13 @@ function makeBetRepository(
     markAcceptedBetsAsLost: mock(async () => 0),
     ...overrides,
   } as BetRepository;
+}
+
+function makeEvents(): GameEventsService {
+  return {
+    emit: mock(() => undefined),
+    on: mock(() => () => undefined),
+  } as unknown as GameEventsService;
 }
 
 function makeContext() {
@@ -111,7 +120,7 @@ describe("WalletDebitResultConsumer", () => {
     const repository = makeBetRepository({
       findByCorrelationId: mock(async () => null),
     });
-    const consumer = new WalletDebitResultConsumer(repository);
+    const consumer = new WalletDebitResultConsumer(repository, makeEvents());
     const { context, channel, message } = makeContext();
 
     await consumer.handleResult(makeDebitMessage(), context);
@@ -122,7 +131,8 @@ describe("WalletDebitResultConsumer", () => {
 
   test("marks pending bet as accepted on approved debit", async () => {
     const repository = makeBetRepository();
-    const consumer = new WalletDebitResultConsumer(repository);
+    const events = makeEvents();
+    const consumer = new WalletDebitResultConsumer(repository, events);
     const { context, channel, message } = makeContext();
 
     await consumer.handleResult(makeDebitMessage(), context);
@@ -131,12 +141,16 @@ describe("WalletDebitResultConsumer", () => {
       "correlation-1",
       now,
     );
+    expect(events.emit).toHaveBeenCalledWith(
+      "bet:placed",
+      expect.objectContaining({ bet: expect.objectContaining({ status: "ACCEPTED" }) }),
+    );
     expect(channel.ack).toHaveBeenCalledWith(message);
   });
 
   test("marks pending bet as rejected on rejected debit", async () => {
     const repository = makeBetRepository();
-    const consumer = new WalletDebitResultConsumer(repository);
+    const consumer = new WalletDebitResultConsumer(repository, makeEvents());
     const { context } = makeContext();
 
     await consumer.handleResult(
@@ -155,7 +169,7 @@ describe("WalletDebitResultConsumer", () => {
       markPendingBetAsAcceptedIfRoundActive: mock(async () => null),
       markPendingBetAsLostIfRoundCrashed: mock(async () => null),
     });
-    const consumer = new WalletDebitResultConsumer(repository);
+    const consumer = new WalletDebitResultConsumer(repository, makeEvents());
     const { context } = makeContext();
 
     await consumer.handleResult(makeDebitMessage(), context);
@@ -176,7 +190,7 @@ describe("WalletDebitResultConsumer", () => {
         throw new Error("database unavailable");
       }),
     });
-    const consumer = new WalletDebitResultConsumer(repository);
+    const consumer = new WalletDebitResultConsumer(repository, makeEvents());
     const { context, channel, message } = makeContext();
 
     await expect(consumer.handleResult(makeDebitMessage(), context)).rejects.toThrow(
@@ -189,7 +203,8 @@ describe("WalletDebitResultConsumer", () => {
 describe("WalletCreditResultConsumer", () => {
   test("marks cashout pending bet as cashed out on approved credit", async () => {
     const repository = makeBetRepository();
-    const consumer = new WalletCreditResultConsumer(repository);
+    const events = makeEvents();
+    const consumer = new WalletCreditResultConsumer(repository, events);
     const { context, channel, message } = makeContext();
 
     await consumer.handleResult(makeCreditMessage(), context);
@@ -198,12 +213,16 @@ describe("WalletCreditResultConsumer", () => {
       "cashout-correlation-1",
       now,
     );
+    expect(events.emit).toHaveBeenCalledWith(
+      "bet:cashed_out",
+      expect.objectContaining({ bet: expect.objectContaining({ status: "CASHED_OUT" }) }),
+    );
     expect(channel.ack).toHaveBeenCalledWith(message);
   });
 
   test("reverts cashout pending bet to accepted on rejected credit", async () => {
     const repository = makeBetRepository();
-    const consumer = new WalletCreditResultConsumer(repository);
+    const consumer = new WalletCreditResultConsumer(repository, makeEvents());
     const { context } = makeContext();
 
     await consumer.handleResult(
@@ -221,7 +240,7 @@ describe("WalletCreditResultConsumer", () => {
     const repository = makeBetRepository({
       markCashoutPendingBetAsAcceptedIfRoundInProgress: mock(async () => null),
     });
-    const consumer = new WalletCreditResultConsumer(repository);
+    const consumer = new WalletCreditResultConsumer(repository, makeEvents());
     const { context } = makeContext();
 
     await consumer.handleResult(
@@ -241,7 +260,7 @@ describe("WalletCreditResultConsumer", () => {
         throw new Error("database unavailable");
       }),
     });
-    const consumer = new WalletCreditResultConsumer(repository);
+    const consumer = new WalletCreditResultConsumer(repository, makeEvents());
     const { context, channel, message } = makeContext();
 
     await expect(consumer.handleResult(makeCreditMessage(), context)).rejects.toThrow(

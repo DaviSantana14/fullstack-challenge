@@ -52,14 +52,25 @@ function useRoundHistory() {
   });
 }
 
+function useCurrentRoundBets() {
+  return useQuery({
+    queryKey: ["bets", "current-round"],
+    queryFn: () => apiGet<Bet[]>("/games/bets/current-round"),
+    refetchInterval: 3000,
+  });
+}
+
 export function useGameState() {
   const queryClient = useQueryClient();
   const [betAmount, setBetAmount] = useState<string>("250");
 
-  async function refreshGameState(options?: { wallet?: boolean; history?: boolean }) {
+  async function refreshGameState(options?: { wallet?: boolean; history?: boolean; bets?: boolean }) {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["round", "current"], exact: true }),
       queryClient.invalidateQueries({ queryKey: ["bet", "current"], exact: true }),
+      options?.bets
+        ? queryClient.invalidateQueries({ queryKey: ["bets", "current-round"], exact: true })
+        : Promise.resolve(),
       options?.wallet
         ? queryClient.invalidateQueries({ queryKey: ["wallet"], exact: true })
         : Promise.resolve(),
@@ -76,24 +87,26 @@ export function useGameState() {
   const myBetQuery = useMyCurrentBet();
   const walletQuery = useWallet();
   const historyQuery = useRoundHistory();
+  const currentRoundBetsQuery = useCurrentRoundBets();
 
   const round = roundQuery.data ?? null;
   const myBet = myBetQuery.data ?? null;
   const wallet = walletQuery.data ?? null;
   const history = historyQuery.data ?? [];
+  const bets = currentRoundBetsQuery.data ?? [];
 
   const placeBetMutation = useMutation({
     mutationFn: (amountInCents: string) =>
       apiPost<Bet>("/games/bets", { amountInCents }),
     onSuccess: async () => {
-      await refreshGameState({ wallet: true });
+      await refreshGameState({ wallet: true, bets: true });
     },
   });
 
   const cashoutMutation = useMutation({
     mutationFn: () => apiPost<Bet>("/games/bets/me/current/cashout", {}),
     onSuccess: async () => {
-      await refreshGameState({ wallet: true });
+      await refreshGameState({ wallet: true, bets: true });
     },
   });
 
@@ -173,12 +186,15 @@ export function useGameState() {
   const isPending = myBet?.status === "PENDING" || myBet?.status === "CASHOUT_PENDING";
 
   const multiplier = useMultiplier(round);
+  const bettingCountdownMs = useBettingCountdown(round);
 
   return {
     round,
     myBet,
     wallet,
     history,
+    bets,
+    bettingCountdownMs,
     betAmount,
     setBetAmount,
     multiplier,
@@ -198,6 +214,33 @@ export function useGameState() {
     isStartingRound: startRoundMutation.isPending,
     isCrashingRound: crashRoundMutation.isPending,
   };
+}
+
+function useBettingCountdown(round: Round | null): number | null {
+  const [countdownMs, setCountdownMs] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!round || round.status !== "BETTING") {
+      setCountdownMs(null);
+      return;
+    }
+
+    const bettingClosesAt = round.bettingClosesAt;
+
+    function tick() {
+      const remainingMs = new Date(bettingClosesAt).getTime() - Date.now();
+      setCountdownMs(Math.max(0, remainingMs));
+    }
+
+    tick();
+    const intervalId = window.setInterval(tick, 250);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [round]);
+
+  return countdownMs;
 }
 
 function useMultiplier(round: Round | null): number {

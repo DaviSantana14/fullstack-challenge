@@ -54,5 +54,6 @@ export interface GameState {
   wallet: Wallet | null;
   history: RoundHistoryItem[];
   bets: Bet[];
+  bettingCountdownMs: number | null;
   serverTime: string | null;
 }
