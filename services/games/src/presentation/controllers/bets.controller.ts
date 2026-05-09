@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
 import { CashoutCurrentBetUseCase } from "../../application/use-cases/cashout-current-bet.use-case";
 import { GetCurrentRoundBetsUseCase } from "../../application/use-cases/get-current-round-bets.use-case";
+import { GetMyBetsUseCase } from "../../application/use-cases/get-my-bets.use-case";
 import { GetMyCurrentBetUseCase } from "../../application/use-cases/get-my-current-bet.use-case";
 import { PlaceBetUseCase } from "../../application/use-cases/place-bet.use-case";
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -16,6 +17,7 @@ export class BetsController {
   constructor(
     private readonly placeBetUseCase: PlaceBetUseCase,
     private readonly getCurrentRoundBetsUseCase: GetCurrentRoundBetsUseCase,
+    private readonly getMyBetsUseCase: GetMyBetsUseCase,
     private readonly getMyCurrentBetUseCase: GetMyCurrentBetUseCase,
     private readonly cashoutCurrentBetUseCase: CashoutCurrentBetUseCase,
   ) {}
@@ -34,6 +36,16 @@ export class BetsController {
   @Get("current-round")
   async getCurrentRoundBets(): Promise<BetResponseDto[]> {
     const bets = await this.getCurrentRoundBetsUseCase.execute();
+
+    return bets.map(BetResponseDto.fromBet);
+  }
+
+  @Get("me")
+  @UseGuards(MvpAuthGuard)
+  async getMyBets(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<BetResponseDto[]> {
+    const bets = await this.getMyBetsUseCase.execute(user.playerId);
 
     return bets.map(BetResponseDto.fromBet);
   }

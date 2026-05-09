@@ -7,6 +7,7 @@ import { CrashCurrentRoundUseCase } from "./application/use-cases/crash-current-
 import { CreateRoundUseCase } from "./application/use-cases/create-round.use-case";
 import { GetCurrentRoundUseCase } from "./application/use-cases/get-current-round.use-case";
 import { GetCurrentRoundBetsUseCase } from "./application/use-cases/get-current-round-bets.use-case";
+import { GetMyBetsUseCase } from "./application/use-cases/get-my-bets.use-case";
 import { GetMyCurrentBetUseCase } from "./application/use-cases/get-my-current-bet.use-case";
 import { PlaceBetUseCase } from "./application/use-cases/place-bet.use-case";
 import { GetRoundHistoryUseCase } from "./application/use-cases/get-round-history.use-case";
@@ -63,6 +64,7 @@ import { MvpAuthGuard } from "./presentation/auth/mvp-auth.guard";
     GetCurrentRoundUseCase,
     GetCurrentRoundBetsUseCase,
     PlaceBetUseCase,
+    GetMyBetsUseCase,
     GetMyCurrentBetUseCase,
     GetRoundHistoryUseCase,
     StartCurrentRoundUseCase,

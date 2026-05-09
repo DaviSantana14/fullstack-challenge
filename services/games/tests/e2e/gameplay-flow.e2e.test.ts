@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 
 const KONG_URL = process.env.E2E_KONG_URL ?? "http://localhost:8000";
 const GAMES_URL = process.env.E2E_GAMES_URL ?? "http://localhost:4001";
@@ -194,6 +194,101 @@ async function getMyWallet(playerId: string): Promise<WalletResponse> {
   });
 }
 
+async function getMyBets(playerId: string): Promise<BetResponse[]> {
+  return requestJson<BetResponse[]>("GET", `${KONG_URL}/games/bets/me`, {
+    headers: authHeaders(playerId),
+  });
+}
+
+async function createPlayerWithWallet(
+  initialBalanceInCents: number,
+): Promise<string> {
+  const playerId = `e2e-${Date.now()}-${randomUUID()}`;
+
+  await requestJson<WalletResponse>("POST", `${KONG_URL}/wallets`, {
+    headers: authHeaders(playerId),
+    expectedStatus: 201,
+  });
+
+  if (initialBalanceInCents > 0) {
+    await requestJson<WalletResponse>(
+      "POST",
+      `${WALLETS_URL}/internal/dev/fund`,
+      {
+        body: {
+          playerId,
+          amountInCents: initialBalanceInCents.toString(),
+        },
+        headers: internalHeaders(),
+        expectedStatus: 201,
+      },
+    );
+  }
+
+  await expect(getMyWallet(playerId)).resolves.toMatchObject({
+    playerId,
+    balanceInCents: initialBalanceInCents.toString(),
+  });
+
+  return playerId;
+}
+
+async function placeBet(
+  playerId: string,
+  amountInCents: number,
+  expectedStatus = 201,
+): Promise<BetResponse> {
+  return requestJson<BetResponse>("POST", `${KONG_URL}/games/bets`, {
+    body: { amountInCents: amountInCents.toString() },
+    headers: authHeaders(playerId),
+    expectedStatus,
+  });
+}
+
+async function startCurrentRound(): Promise<RoundResponse> {
+  return requestJson<RoundResponse>(
+    "POST",
+    `${GAMES_URL}/internal/rounds/current/start`,
+    { headers: internalHeaders(), expectedStatus: 201 },
+  );
+}
+
+async function crashCurrentRound(): Promise<RoundResponse> {
+  return requestJson<RoundResponse>(
+    "POST",
+    `${GAMES_URL}/internal/rounds/current/crash`,
+    { headers: internalHeaders(), expectedStatus: 201 },
+  );
+}
+
+async function waitForCurrentBetStatus(
+  playerId: string,
+  status: string,
+): Promise<BetResponse> {
+  return eventually(async () => {
+    const currentBet = await requestJson<CurrentBetResponse>(
+      "GET",
+      `${KONG_URL}/games/bets/me/current`,
+      { headers: authHeaders(playerId) },
+    );
+
+    return currentBet.bet?.status === status ? currentBet.bet : null;
+  });
+}
+
+async function waitForHistoricalBetStatus(
+  playerId: string,
+  betId: string,
+  status: string,
+): Promise<BetResponse> {
+  return eventually(async () => {
+    const bets = await getMyBets(playerId);
+    const bet = bets.find((item) => item.id === betId);
+
+    return bet?.status === status ? bet : null;
+  });
+}
+
 async function waitForStack(): Promise<void> {
   await eventually(async () => {
     await requestJson("GET", `${GAMES_URL}/health`);
@@ -206,54 +301,23 @@ async function waitForStack(): Promise<void> {
 }
 
 describe("gameplay E2E", () => {
-  test("reserves a bet, cashes out, credits payout, and exposes verification data", async () => {
+  beforeAll(async () => {
     await waitForStack();
+  }, 30_000);
 
-    const playerId = `e2e-${Date.now()}-${randomUUID()}`;
+  test("reserves a bet, cashes out, credits payout, and exposes verification data", async () => {
     const initialBalance = 100_000;
     const betAmount = 10_000;
+    const playerId = await createPlayerWithWallet(initialBalance);
     const round = await createFreshRound();
 
-    await requestJson<WalletResponse>("POST", `${KONG_URL}/wallets`, {
-      headers: authHeaders(playerId),
-      expectedStatus: 201,
-    });
-    await requestJson<WalletResponse>(
-      "POST",
-      `${WALLETS_URL}/internal/dev/fund`,
-      {
-        body: { playerId, amountInCents: initialBalance.toString() },
-        headers: internalHeaders(),
-        expectedStatus: 201,
-      },
-    );
-
-    await expect(getMyWallet(playerId)).resolves.toMatchObject({
-      playerId,
-      balanceInCents: initialBalance.toString(),
-    });
-
-    const placedBet = await requestJson<BetResponse>(
-      "POST",
-      `${KONG_URL}/games/bets`,
-      {
-        body: { amountInCents: betAmount.toString() },
-        headers: authHeaders(playerId),
-        expectedStatus: 201,
-      },
-    );
+    const placedBet = await placeBet(playerId, betAmount);
     const acceptedBet = await eventually(async () => {
       if (placedBet.status === "ACCEPTED") {
         return placedBet;
       }
 
-      const currentBet = await requestJson<CurrentBetResponse>(
-        "GET",
-        `${KONG_URL}/games/bets/me/current`,
-        { headers: authHeaders(playerId) },
-      );
-
-      return currentBet.bet?.status === "ACCEPTED" ? currentBet.bet : null;
+      return waitForCurrentBetStatus(playerId, "ACCEPTED");
     });
 
     expect(acceptedBet).toMatchObject({
@@ -269,11 +333,7 @@ describe("gameplay E2E", () => {
     );
     expect(roundBets.some((bet) => bet.id === acceptedBet.id)).toBe(true);
 
-    await requestJson<RoundResponse>(
-      "POST",
-      `${GAMES_URL}/internal/rounds/current/start`,
-      { headers: internalHeaders(), expectedStatus: 201 },
-    );
+    await startCurrentRound();
     await new Promise((resolve) => setTimeout(resolve, 200));
 
     await requestJson<BetResponse>(
@@ -309,11 +369,7 @@ describe("gameplay E2E", () => {
         : null;
     });
 
-    await requestJson<RoundResponse>(
-      "POST",
-      `${GAMES_URL}/internal/rounds/current/crash`,
-      { headers: internalHeaders(), expectedStatus: 201 },
-    );
+    await crashCurrentRound();
 
     const verification = await requestJson<VerifyRoundResponse>(
       "GET",
@@ -327,5 +383,118 @@ describe("gameplay E2E", () => {
     expect(verification.actualCrashPointHundredths).toBe(
       verification.calculatedCrashPointHundredths,
     );
+  }, 30_000);
+
+  test("marks an accepted bet as lost when the round crashes without cashout", async () => {
+    const initialBalance = 100_000;
+    const betAmount = 10_000;
+    const playerId = await createPlayerWithWallet(initialBalance);
+    const round = await createFreshRound();
+    const placedBet = await placeBet(playerId, betAmount);
+    const acceptedBet =
+      placedBet.status === "ACCEPTED"
+        ? placedBet
+        : await waitForCurrentBetStatus(playerId, "ACCEPTED");
+
+    await startCurrentRound();
+    await crashCurrentRound();
+
+    const lostBet = await waitForHistoricalBetStatus(
+      playerId,
+      acceptedBet.id,
+      "LOST",
+    );
+    expect(lostBet).toMatchObject({
+      id: acceptedBet.id,
+      roundId: round.id,
+      playerId,
+      status: "LOST",
+      amountInCents: betAmount.toString(),
+    });
+    await expect(getMyWallet(playerId)).resolves.toMatchObject({
+      balanceInCents: (initialBalance - betAmount).toString(),
+    });
+
+    const verification = await requestJson<VerifyRoundResponse>(
+      "GET",
+      `${KONG_URL}/games/rounds/${round.id}/verify`,
+    );
+    expect(verification.isValid).toBe(true);
+  }, 30_000);
+
+  test("rejects a bet when wallet balance is insufficient", async () => {
+    const initialBalance = 500;
+    const betAmount = 1_000;
+    const playerId = await createPlayerWithWallet(initialBalance);
+
+    await createFreshRound();
+
+    const placedBet = await placeBet(playerId, betAmount);
+    const rejectedBet =
+      placedBet.status === "REJECTED"
+        ? placedBet
+        : await waitForCurrentBetStatus(playerId, "REJECTED");
+
+    expect(rejectedBet).toMatchObject({
+      playerId,
+      amountInCents: betAmount.toString(),
+      status: "REJECTED",
+      rejectionReason: "INSUFFICIENT_FUNDS",
+    });
+    await expect(getMyWallet(playerId)).resolves.toMatchObject({
+      balanceInCents: initialBalance.toString(),
+    });
+  }, 30_000);
+
+  test("rejects a duplicate bet in the same round", async () => {
+    const playerId = await createPlayerWithWallet(100_000);
+
+    await createFreshRound();
+    const placedBet = await placeBet(playerId, 10_000);
+
+    if (placedBet.status !== "ACCEPTED") {
+      await waitForCurrentBetStatus(playerId, "ACCEPTED");
+    }
+
+    await requestJson("POST", `${KONG_URL}/games/bets`, {
+      body: { amountInCents: "10000" },
+      headers: authHeaders(playerId),
+      expectedStatus: 409,
+    });
+  }, 30_000);
+
+  test("rejects placing a bet after the betting phase has ended", async () => {
+    const playerId = await createPlayerWithWallet(100_000);
+
+    await createFreshRound();
+    await startCurrentRound();
+
+    await requestJson("POST", `${KONG_URL}/games/bets`, {
+      body: { amountInCents: "10000" },
+      headers: authHeaders(playerId),
+      expectedStatus: 409,
+    });
+  }, 30_000);
+
+  test("rejects cashout without an accepted in-progress bet or after crash", async () => {
+    const playerWithoutBet = await createPlayerWithWallet(100_000);
+
+    await createFreshRound();
+    await startCurrentRound();
+
+    await requestJson("POST", `${KONG_URL}/games/bets/me/current/cashout`, {
+      body: {},
+      headers: authHeaders(playerWithoutBet),
+      expectedStatus: 409,
+    });
+    await crashCurrentRound();
+
+    const playerAfterCrash = await createPlayerWithWallet(100_000);
+
+    await requestJson("POST", `${KONG_URL}/games/bets/me/current/cashout`, {
+      body: {},
+      headers: authHeaders(playerAfterCrash),
+      expectedStatus: 409,
+    });
   }, 30_000);
 });

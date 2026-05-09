@@ -82,6 +82,7 @@ function makeBetRepository(
 
   return {
     findByRoundId: mock(async () => []),
+    findByPlayerId: mock(async () => []),
     findByRoundIdAndPlayerId: mock(async () => null),
     findByCorrelationId: mock(async () => null),
     createPendingBet: mock(),

@@ -10,6 +10,7 @@ import { StartCurrentRoundUseCase } from "../../src/application/use-cases/start-
 import { CrashCurrentRoundUseCase } from "../../src/application/use-cases/crash-current-round.use-case";
 import { VerifyRoundUseCase } from "../../src/application/use-cases/verify-round.use-case";
 import { GetCurrentRoundBetsUseCase } from "../../src/application/use-cases/get-current-round-bets.use-case";
+import { GetMyBetsUseCase } from "../../src/application/use-cases/get-my-bets.use-case";
 import type { GameEventsService } from "../../src/application/events/game-events.service";
 
 const baseDate = new Date("2026-05-09T12:00:00.000Z");
@@ -71,6 +72,7 @@ function makeBetRepository(
 ): BetRepository {
   return {
     findByRoundId: mock(async () => []),
+    findByPlayerId: mock(async () => []),
     findByRoundIdAndPlayerId: mock(async () => null),
     findByCorrelationId: mock(async () => null),
     createPendingBet: mock(),
@@ -278,6 +280,38 @@ describe("round use cases", () => {
 
       await expect(useCase.execute()).resolves.toBe(bets);
       expect(betRepository.findByRoundId).toHaveBeenCalledWith(round.id);
+    });
+  });
+
+  describe("GetMyBetsUseCase", () => {
+    test("returns the latest bets for a player", async () => {
+      const bets = [
+        {
+          id: "bet-1",
+          roundId: "round-1",
+          playerId: "player-1",
+          amountInCents: BigInt(1000),
+          status: "LOST" as const,
+          cashoutMultiplierHundredths: null,
+          payoutInCents: null,
+          correlationId: "correlation-1",
+          cashoutCorrelationId: null,
+          rejectionReason: null,
+          placedAt: baseDate,
+          acceptedAt: baseDate,
+          cashedOutAt: null,
+          settledAt: baseDate,
+          createdAt: baseDate,
+          updatedAt: baseDate,
+        },
+      ];
+      const betRepository = makeBetRepository({
+        findByPlayerId: mock(async () => bets),
+      });
+      const useCase = new GetMyBetsUseCase(betRepository);
+
+      await expect(useCase.execute("player-1")).resolves.toBe(bets);
+      expect(betRepository.findByPlayerId).toHaveBeenCalledWith("player-1", 20);
     });
   });
 });

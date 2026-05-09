@@ -26,6 +26,16 @@ export class PrismaBetRepository implements BetRepository {
     return bets as BetRecord[];
   }
 
+  async findByPlayerId(playerId: string, limit: number): Promise<BetRecord[]> {
+    const bets = await this.prisma.bet.findMany({
+      where: { playerId },
+      orderBy: [{ placedAt: "desc" }],
+      take: limit,
+    });
+
+    return bets as BetRecord[];
+  }
+
   async findByCorrelationId(correlationId: string): Promise<BetRecord | null> {
     const bet = await this.prisma.bet.findUnique({
       where: { correlationId },
