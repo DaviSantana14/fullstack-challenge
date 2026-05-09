@@ -231,7 +231,9 @@ describe("round use cases", () => {
 
       expect(result.isValid).toBe(true);
       expect(result.serverSeedHash).toBe(round.serverSeedHash);
-      expect(result.calculatedCrashPointHundredths).toBe(round.crashPointHundredths);
+      expect(result.calculatedCrashPointHundredths).toBe(
+        round.crashPointHundredths as number,
+      );
     });
   });
 
