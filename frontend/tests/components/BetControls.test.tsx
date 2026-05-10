@@ -1,5 +1,5 @@
-import { describe, expect, mock, test } from "bun:test";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, mock, test } from "bun:test";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { BetControls } from "@/components/BetControls";
 
 function renderBetControls(
@@ -31,6 +31,10 @@ function renderBetControls(
 }
 
 describe("BetControls", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   test("places a bet without auto cashout when disabled", async () => {
     const props = renderBetControls();
 
