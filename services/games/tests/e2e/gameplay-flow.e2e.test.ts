@@ -1,9 +1,18 @@
 import { randomUUID } from "crypto";
+import { Buffer } from "buffer";
 import { beforeAll, describe, expect, test } from "bun:test";
 
 const KONG_URL = process.env.E2E_KONG_URL ?? "http://localhost:8000";
 const GAMES_URL = process.env.E2E_GAMES_URL ?? "http://localhost:4001";
 const WALLETS_URL = process.env.E2E_WALLETS_URL ?? "http://localhost:4002";
+const KEYCLOAK_URL = process.env.E2E_KEYCLOAK_URL ?? "http://localhost:8080";
+const KEYCLOAK_REALM = process.env.E2E_KEYCLOAK_REALM ?? "crash-game";
+const KEYCLOAK_CLIENT_ID =
+  process.env.E2E_KEYCLOAK_CLIENT_ID ?? "crash-game-client";
+const KEYCLOAK_ADMIN_USERNAME =
+  process.env.E2E_KEYCLOAK_ADMIN_USERNAME ?? "admin";
+const KEYCLOAK_ADMIN_PASSWORD =
+  process.env.E2E_KEYCLOAK_ADMIN_PASSWORD ?? "admin";
 const INTERNAL_API_TOKEN =
   process.env.E2E_INTERNAL_API_TOKEN ?? "dev-internal-token";
 
@@ -73,9 +82,23 @@ interface VerifyRoundResponse {
 }
 
 interface RequestOptions {
-  body?: unknown;
+  body?: unknown | URLSearchParams;
   headers?: Record<string, string>;
   expectedStatus?: number;
+}
+
+interface AuthContext {
+  playerId: string;
+  username: string;
+  accessToken: string;
+}
+
+interface KeycloakTokenResponse {
+  access_token: string;
+}
+
+interface JwtPayload {
+  sub: string;
 }
 
 async function requestJson<T>(
@@ -86,10 +109,16 @@ async function requestJson<T>(
   const response = await fetch(url, {
     method,
     headers: {
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(options.body && !(options.body instanceof URLSearchParams)
+        ? { "Content-Type": "application/json" }
+        : {}),
       ...options.headers,
     },
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: options.body instanceof URLSearchParams
+      ? options.body
+      : options.body
+        ? JSON.stringify(options.body)
+        : undefined,
   });
 
   const payload = await response.json().catch(() => null);
@@ -132,12 +161,85 @@ async function eventually<T>(
     : new Error(`Condition was not met within ${timeoutMs}ms.`);
 }
 
-function authHeaders(playerId: string): Record<string, string> {
-  return { "x-player-id": playerId };
+function authHeaders(auth: AuthContext): Record<string, string> {
+  return { Authorization: `Bearer ${auth.accessToken}` };
 }
 
 function internalHeaders(): Record<string, string> {
   return { "x-internal-token": INTERNAL_API_TOKEN };
+}
+
+function decodeJwtPayload(token: string): JwtPayload {
+  const [, payload] = token.split(".");
+
+  if (!payload) {
+    throw new Error("Invalid JWT payload.");
+  }
+
+  return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as JwtPayload;
+}
+
+async function getKeycloakAdminToken(): Promise<string> {
+  const tokenResponse = await requestJson<KeycloakTokenResponse>(
+    "POST",
+    `${KEYCLOAK_URL}/realms/master/protocol/openid-connect/token`,
+    {
+      body: new URLSearchParams({
+        client_id: "admin-cli",
+        grant_type: "password",
+        username: KEYCLOAK_ADMIN_USERNAME,
+        password: KEYCLOAK_ADMIN_PASSWORD,
+      }),
+    },
+  );
+
+  return tokenResponse.access_token;
+}
+
+async function createKeycloakUser(username: string, password: string): Promise<void> {
+  const adminToken = await getKeycloakAdminToken();
+  const response = await fetch(`${KEYCLOAK_URL}/admin/realms/${KEYCLOAK_REALM}/users`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      username,
+      email: `${username}@e2e.crash-game.dev`,
+      enabled: true,
+      emailVerified: true,
+      credentials: [
+        {
+          type: "password",
+          value: password,
+          temporary: false,
+        },
+      ],
+    }),
+  });
+
+  if (response.status !== 201 && response.status !== 409) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(`Failed to create Keycloak user: ${response.status} ${JSON.stringify(payload)}`);
+  }
+}
+
+async function getPlayerToken(username: string, password: string): Promise<string> {
+  const tokenResponse = await requestJson<KeycloakTokenResponse>(
+    "POST",
+    `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`,
+    {
+      body: new URLSearchParams({
+        client_id: KEYCLOAK_CLIENT_ID,
+        grant_type: "password",
+        username,
+        password,
+      }),
+    },
+  );
+
+  return tokenResponse.access_token;
 }
 
 async function getCurrentRound(): Promise<RoundResponse | null> {
@@ -193,18 +295,18 @@ async function createFreshRound(): Promise<RoundResponse> {
   return round;
 }
 
-async function getMyWallet(playerId: string): Promise<WalletResponse> {
+async function getMyWallet(auth: AuthContext): Promise<WalletResponse> {
   return requestJson<WalletResponse>("GET", `${KONG_URL}/wallets/me`, {
-    headers: authHeaders(playerId),
+    headers: authHeaders(auth),
   });
 }
 
-async function getMyBets(playerId: string): Promise<BetResponse[]> {
+async function getMyBets(auth: AuthContext): Promise<BetResponse[]> {
   const payload = await requestJson<PaginatedBetsResponse>(
     "GET",
     `${KONG_URL}/games/bets/me`,
     {
-      headers: authHeaders(playerId),
+      headers: authHeaders(auth),
     },
   );
 
@@ -213,11 +315,17 @@ async function getMyBets(playerId: string): Promise<BetResponse[]> {
 
 async function createPlayerWithWallet(
   initialBalanceInCents: number,
-): Promise<string> {
-  const playerId = `e2e-${Date.now()}-${randomUUID()}`;
+): Promise<AuthContext> {
+  const username = `e2e-${Date.now()}-${randomUUID()}`;
+  const password = "E2e-player123";
+
+  await createKeycloakUser(username, password);
+  const accessToken = await getPlayerToken(username, password);
+  const playerId = decodeJwtPayload(accessToken).sub;
+  const auth: AuthContext = { playerId, username, accessToken };
 
   await requestJson<WalletResponse>("POST", `${KONG_URL}/wallets`, {
-    headers: authHeaders(playerId),
+    headers: authHeaders(auth),
     expectedStatus: 201,
   });
 
@@ -236,33 +344,33 @@ async function createPlayerWithWallet(
     );
   }
 
-  await expect(getMyWallet(playerId)).resolves.toMatchObject({
+  await expect(getMyWallet(auth)).resolves.toMatchObject({
     playerId,
     balanceInCents: initialBalanceInCents.toString(),
   });
 
-  return playerId;
+  return auth;
 }
 
 async function placeBet(
-  playerId: string,
+  auth: AuthContext,
   amountInCents: number,
   expectedStatus = 201,
 ): Promise<BetResponse> {
   return requestJson<BetResponse>("POST", `${KONG_URL}/games/bets`, {
     body: { amountInCents: amountInCents.toString() },
-    headers: authHeaders(playerId),
+    headers: authHeaders(auth),
     expectedStatus,
   });
 }
 
 async function placeBetViaReadmeAlias(
-  playerId: string,
+  auth: AuthContext,
   amountInCents: number,
 ): Promise<BetResponse> {
   return requestJson<BetResponse>("POST", `${KONG_URL}/games/bet`, {
     body: { amountInCents: amountInCents.toString() },
-    headers: authHeaders(playerId),
+    headers: authHeaders(auth),
     expectedStatus: 201,
   });
 }
@@ -284,14 +392,14 @@ async function crashCurrentRound(): Promise<RoundResponse> {
 }
 
 async function waitForCurrentBetStatus(
-  playerId: string,
+  auth: AuthContext,
   status: string,
 ): Promise<BetResponse> {
   return eventually(async () => {
     const currentBet = await requestJson<CurrentBetResponse>(
       "GET",
       `${KONG_URL}/games/bets/me/current`,
-      { headers: authHeaders(playerId) },
+      { headers: authHeaders(auth) },
     );
 
     return currentBet.bet?.status === status ? currentBet.bet : null;
@@ -299,12 +407,12 @@ async function waitForCurrentBetStatus(
 }
 
 async function waitForHistoricalBetStatus(
-  playerId: string,
+  auth: AuthContext,
   betId: string,
   status: string,
 ): Promise<BetResponse> {
   return eventually(async () => {
-    const bets = await getMyBets(playerId);
+    const bets = await getMyBets(auth);
     const bet = bets.find((item) => item.id === betId);
 
     return bet?.status === status ? bet : null;
@@ -330,21 +438,21 @@ describe("gameplay E2E", () => {
   test("reserves a bet, cashes out, credits payout, and exposes verification data", async () => {
     const initialBalance = 100_000;
     const betAmount = 10_000;
-    const playerId = await createPlayerWithWallet(initialBalance);
+    const auth = await createPlayerWithWallet(initialBalance);
     const round = await createFreshRound();
 
-    const placedBet = await placeBet(playerId, betAmount);
+    const placedBet = await placeBet(auth, betAmount);
     const acceptedBet = await eventually(async () => {
       if (placedBet.status === "ACCEPTED") {
         return placedBet;
       }
 
-      return waitForCurrentBetStatus(playerId, "ACCEPTED");
+      return waitForCurrentBetStatus(auth, "ACCEPTED");
     });
 
     expect(acceptedBet).toMatchObject({
       roundId: round.id,
-      playerId,
+      playerId: auth.playerId,
       amountInCents: betAmount.toString(),
       status: "ACCEPTED",
     });
@@ -361,14 +469,14 @@ describe("gameplay E2E", () => {
     await requestJson<BetResponse>(
       "POST",
       `${KONG_URL}/games/bets/me/current/cashout`,
-      { body: {}, headers: authHeaders(playerId), expectedStatus: 201 },
+      { body: {}, headers: authHeaders(auth), expectedStatus: 201 },
     );
 
     const cashedOutBet = await eventually(async () => {
       const currentBet = await requestJson<CurrentBetResponse>(
         "GET",
         `${KONG_URL}/games/bets/me/current`,
-        { headers: authHeaders(playerId) },
+        { headers: authHeaders(auth) },
       );
 
       return currentBet.bet?.status === "CASHED_OUT" ? currentBet.bet : null;
@@ -384,7 +492,7 @@ describe("gameplay E2E", () => {
     const expectedFinalBalance = initialBalance - betAmount + payoutInCents;
 
     await eventually(async () => {
-      const wallet = await getMyWallet(playerId);
+      const wallet = await getMyWallet(auth);
 
       return wallet.balanceInCents === expectedFinalBalance.toString()
         ? wallet
@@ -410,18 +518,18 @@ describe("gameplay E2E", () => {
   test("supports README-compatible bet and cashout routes", async () => {
     const initialBalance = 100_000;
     const betAmount = 10_000;
-    const playerId = await createPlayerWithWallet(initialBalance);
+    const auth = await createPlayerWithWallet(initialBalance);
     const round = await createFreshRound();
 
-    const placedBet = await placeBetViaReadmeAlias(playerId, betAmount);
+    const placedBet = await placeBetViaReadmeAlias(auth, betAmount);
     const acceptedBet =
       placedBet.status === "ACCEPTED"
         ? placedBet
-        : await waitForCurrentBetStatus(playerId, "ACCEPTED");
+        : await waitForCurrentBetStatus(auth, "ACCEPTED");
 
     expect(acceptedBet).toMatchObject({
       roundId: round.id,
-      playerId,
+      playerId: auth.playerId,
       amountInCents: betAmount.toString(),
       status: "ACCEPTED",
     });
@@ -431,11 +539,11 @@ describe("gameplay E2E", () => {
 
     await requestJson<BetResponse>("POST", `${KONG_URL}/games/bet/cashout`, {
       body: {},
-      headers: authHeaders(playerId),
+      headers: authHeaders(auth),
       expectedStatus: 201,
     });
 
-    const cashedOutBet = await waitForCurrentBetStatus(playerId, "CASHED_OUT");
+    const cashedOutBet = await waitForCurrentBetStatus(auth, "CASHED_OUT");
     expect(cashedOutBet.id).toBe(acceptedBet.id);
     expect(cashedOutBet.payoutInCents).not.toBeNull();
   }, 30_000);
@@ -443,30 +551,30 @@ describe("gameplay E2E", () => {
   test("marks an accepted bet as lost when the round crashes without cashout", async () => {
     const initialBalance = 100_000;
     const betAmount = 10_000;
-    const playerId = await createPlayerWithWallet(initialBalance);
+    const auth = await createPlayerWithWallet(initialBalance);
     const round = await createFreshRound();
-    const placedBet = await placeBet(playerId, betAmount);
+    const placedBet = await placeBet(auth, betAmount);
     const acceptedBet =
       placedBet.status === "ACCEPTED"
         ? placedBet
-        : await waitForCurrentBetStatus(playerId, "ACCEPTED");
+        : await waitForCurrentBetStatus(auth, "ACCEPTED");
 
     await startCurrentRound();
     await crashCurrentRound();
 
     const lostBet = await waitForHistoricalBetStatus(
-      playerId,
+      auth,
       acceptedBet.id,
       "LOST",
     );
     expect(lostBet).toMatchObject({
       id: acceptedBet.id,
       roundId: round.id,
-      playerId,
+      playerId: auth.playerId,
       status: "LOST",
       amountInCents: betAmount.toString(),
     });
-    await expect(getMyWallet(playerId)).resolves.toMatchObject({
+    await expect(getMyWallet(auth)).resolves.toMatchObject({
       balanceInCents: (initialBalance - betAmount).toString(),
     });
 
@@ -480,53 +588,53 @@ describe("gameplay E2E", () => {
   test("rejects a bet when wallet balance is insufficient", async () => {
     const initialBalance = 500;
     const betAmount = 1_000;
-    const playerId = await createPlayerWithWallet(initialBalance);
+    const auth = await createPlayerWithWallet(initialBalance);
 
     await createFreshRound();
 
-    const placedBet = await placeBet(playerId, betAmount);
+    const placedBet = await placeBet(auth, betAmount);
     const rejectedBet =
       placedBet.status === "REJECTED"
         ? placedBet
-        : await waitForCurrentBetStatus(playerId, "REJECTED");
+        : await waitForCurrentBetStatus(auth, "REJECTED");
 
     expect(rejectedBet).toMatchObject({
-      playerId,
+      playerId: auth.playerId,
       amountInCents: betAmount.toString(),
       status: "REJECTED",
       rejectionReason: "INSUFFICIENT_FUNDS",
     });
-    await expect(getMyWallet(playerId)).resolves.toMatchObject({
+    await expect(getMyWallet(auth)).resolves.toMatchObject({
       balanceInCents: initialBalance.toString(),
     });
   }, 30_000);
 
   test("rejects a duplicate bet in the same round", async () => {
-    const playerId = await createPlayerWithWallet(100_000);
+    const auth = await createPlayerWithWallet(100_000);
 
     await createFreshRound();
-    const placedBet = await placeBet(playerId, 10_000);
+    const placedBet = await placeBet(auth, 10_000);
 
     if (placedBet.status !== "ACCEPTED") {
-      await waitForCurrentBetStatus(playerId, "ACCEPTED");
+      await waitForCurrentBetStatus(auth, "ACCEPTED");
     }
 
     await requestJson("POST", `${KONG_URL}/games/bets`, {
       body: { amountInCents: "10000" },
-      headers: authHeaders(playerId),
+      headers: authHeaders(auth),
       expectedStatus: 409,
     });
   }, 30_000);
 
   test("rejects placing a bet after the betting phase has ended", async () => {
-    const playerId = await createPlayerWithWallet(100_000);
+    const auth = await createPlayerWithWallet(100_000);
 
     await createFreshRound();
     await startCurrentRound();
 
     await requestJson("POST", `${KONG_URL}/games/bets`, {
       body: { amountInCents: "10000" },
-      headers: authHeaders(playerId),
+      headers: authHeaders(auth),
       expectedStatus: 409,
     });
   }, 30_000);

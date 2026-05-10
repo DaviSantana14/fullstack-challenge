@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { setPlayerId } from "@/lib/auth";
-import { apiPost } from "@/lib/api";
+import { isAuthenticated, loginWithKeycloak } from "@/lib/auth";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,37 +12,25 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Gamepad2, LogIn } from "lucide-react";
+import { Gamepad2, LogIn, ShieldCheck } from "lucide-react";
 
 export default function Home() {
-  const [nickname, setNickname] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (!nickname.trim()) {
-      toast.error("Digite um nickname para continuar");
-      return;
+  useEffect(() => {
+    if (isAuthenticated()) {
+      router.replace("/game");
     }
+  }, [router]);
 
+  async function handleLogin() {
     setIsLoading(true);
 
     try {
-      const playerId = nickname.trim().toLowerCase().replace(/\s+/g, "_");
-      setPlayerId(playerId);
-
-      // Try to create wallet (idempotent if already exists)
-      await apiPost("/wallets").catch(() => {
-        // Wallet may already exist, that's fine
-      });
-
-      router.push("/game");
+      await loginWithKeycloak();
     } catch {
-      toast.error("Erro ao entrar no jogo. Tente novamente.");
-    } finally {
+      toast.error("Erro ao iniciar login com Keycloak.");
       setIsLoading(false);
     }
   }
@@ -56,31 +43,24 @@ export default function Home() {
             <Gamepad2 aria-hidden="true" />
           </div>
           <CardTitle className="text-3xl font-black">Crash Game</CardTitle>
-          <CardDescription>Multiplayer em tempo real</CardDescription>
+          <CardDescription>Login seguro via Keycloak</CardDescription>
         </CardHeader>
 
         <CardContent>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-            <div className="flex flex-col gap-2">
-              <label htmlFor="nickname" className="text-sm font-medium text-muted-foreground">
-                Digite seu nickname para jogar
-              </label>
-              <Input
-                id="nickname"
-                type="text"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                placeholder="Ex: jogador123"
-                disabled={isLoading}
-                className="h-11"
-              />
+          <div className="flex flex-col gap-5">
+            <div className="rounded-lg border border-border bg-secondary/50 px-4 py-3 text-sm text-muted-foreground">
+              <div className="mb-1 flex items-center gap-2 font-medium text-foreground">
+                <ShieldCheck size={16} aria-hidden="true" />
+                Autenticação OIDC
+              </div>
+              Use o usuário de teste configurado no realm: player / player123.
             </div>
 
-            <Button type="submit" disabled={isLoading} className="h-11 w-full shadow-lg shadow-primary/20">
+            <Button type="button" onClick={handleLogin} disabled={isLoading} className="h-11 w-full shadow-lg shadow-primary/20">
               <LogIn data-icon="inline-start" />
-              {isLoading ? "Entrando..." : "Entrar no jogo"}
+              {isLoading ? "Redirecionando..." : "Entrar com Keycloak"}
             </Button>
-          </form>
+          </div>
         </CardContent>
       </Card>
     </main>

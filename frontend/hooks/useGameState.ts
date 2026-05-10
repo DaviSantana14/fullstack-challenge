@@ -39,7 +39,17 @@ function useMyCurrentBet() {
 function useWallet() {
   return useQuery({
     queryKey: ["wallet"],
-    queryFn: () => apiGet<Wallet>("/wallets/me"),
+    queryFn: async () => {
+      try {
+        return await apiGet<Wallet>("/wallets/me");
+      } catch (error) {
+        if (error instanceof Error && error.message === "Wallet not found for this player.") {
+          return apiPost<Wallet>("/wallets");
+        }
+
+        throw error;
+      }
+    },
     refetchInterval: 5000,
   });
 }

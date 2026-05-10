@@ -13,7 +13,7 @@ import { PrismaService } from "./infrastructure/prisma/prisma.service";
 import { PrismaWalletRepository } from "./infrastructure/wallets/prisma-wallet.repository";
 import { InternalApiGuard } from "./presentation/auth/internal-api.guard";
 import { WalletsController } from "./presentation/controllers/wallets.controller";
-import { MvpAuthGuard } from "./presentation/auth/mvp-auth.guard";
+import { JwtAuthGuard } from "./presentation/auth/jwt-auth.guard";
 
 @Module({
   imports: [
@@ -34,7 +34,7 @@ import { MvpAuthGuard } from "./presentation/auth/mvp-auth.guard";
   controllers: [WalletsController, WalletDebitConsumer, WalletCreditConsumer],
   providers: [
     PrismaService,
-    MvpAuthGuard,
+    JwtAuthGuard,
     InternalApiGuard,
     CreateWalletUseCase,
     CreditWalletForCashoutUseCase,

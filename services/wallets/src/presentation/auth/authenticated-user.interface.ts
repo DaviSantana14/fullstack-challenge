@@ -1,5 +1,6 @@
 export interface AuthenticatedUser {
   playerId: string;
+  username: string;
 }
 
 export interface AuthenticatedRequest {

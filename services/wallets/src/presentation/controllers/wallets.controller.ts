@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
@@ -17,7 +18,7 @@ import { GetMyWalletUseCase } from "../../application/use-cases/get-my-wallet.us
 import { CurrentUser } from "../auth/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/authenticated-user.interface";
 import { InternalApiGuard } from "../auth/internal-api.guard";
-import { MvpAuthGuard } from "../auth/mvp-auth.guard";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { FundWalletRequestDto } from "../dtos/fund-wallet-request.dto";
 import { HealthCheckResponseDto } from "../dtos/health-check-response.dto";
 import { WalletResponseDto } from "../dtos/wallet-response.dto";
@@ -39,13 +40,13 @@ export class WalletsController {
   }
 
   @Post()
-  @UseGuards(MvpAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a wallet for the current player" })
-  @ApiHeader({ name: "x-player-id", required: true, example: "player-1" })
+  @ApiBearerAuth()
   @ApiCreatedResponse({ type: WalletResponseDto })
   @ApiConflictResponse({ description: "Wallet already exists for this player." })
-  @ApiUnauthorizedResponse({ description: "Missing x-player-id header." })
+  @ApiUnauthorizedResponse({ description: "Missing or invalid bearer token." })
   async createWallet(
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<WalletResponseDto> {
@@ -55,12 +56,12 @@ export class WalletsController {
   }
 
   @Get("me")
-  @UseGuards(MvpAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "Get the current player's wallet" })
-  @ApiHeader({ name: "x-player-id", required: true, example: "player-1" })
+  @ApiBearerAuth()
   @ApiOkResponse({ type: WalletResponseDto })
   @ApiNotFoundResponse({ description: "Wallet not found for this player." })
-  @ApiUnauthorizedResponse({ description: "Missing x-player-id header." })
+  @ApiUnauthorizedResponse({ description: "Missing or invalid bearer token." })
   async getMyWallet(
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<WalletResponseDto> {

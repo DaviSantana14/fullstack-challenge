@@ -10,6 +10,7 @@ function setupSwagger(app: INestApplication): void {
     .setTitle("Crash Game - Games API")
     .setDescription("Rounds, bets, cashout, and provably fair endpoints for the Crash Game service.")
     .setVersion("0.0.1")
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

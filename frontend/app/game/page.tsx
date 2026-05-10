@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getPlayerId } from "@/lib/auth";
+import { getPlayerId, getUsername, isAuthenticated, logout } from "@/lib/auth";
 import { apiPost } from "@/lib/api";
 import { useGameState } from "@/hooks/useGameState";
 import { GamePanel } from "@/components/GamePanel";
@@ -25,15 +25,16 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { Activity, Gamepad2, Radio, ShieldCheck } from "lucide-react";
+import { Activity, Gamepad2, LogOut, Radio, ShieldCheck, User } from "lucide-react";
 
 export default function GamePage() {
   const router = useRouter();
   const [devFundAmount, setDevFundAmount] = useState("1000");
   const showDevTools = process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS === "true";
+  const username = getUsername();
 
   useEffect(() => {
-    if (!getPlayerId()) {
+    if (!isAuthenticated()) {
       router.push("/");
     }
   }, [router]);
@@ -212,6 +213,13 @@ export default function GamePage() {
             balanceInCents={wallet?.balanceInCents ?? null}
             isLoading={isWalletLoading}
           />
+          <div className="hidden items-center gap-2 rounded-lg border border-border bg-secondary/60 px-3 py-2 text-sm sm:flex">
+            <User size={16} aria-hidden="true" />
+            <span className="max-w-32 truncate">{username ?? "player"}</span>
+            <Button type="button" variant="ghost" size="icon" onClick={logout} aria-label="Sair">
+              <LogOut aria-hidden="true" />
+            </Button>
+          </div>
         </div>
       </header>
 

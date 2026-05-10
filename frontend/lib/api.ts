@@ -1,15 +1,12 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+import { clearSession, getValidAccessToken } from "@/lib/auth";
 
-function getPlayerId(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("playerId");
-}
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 async function fetchWithAuth(
   path: string,
   options: RequestInit = {},
 ): Promise<Response> {
-  const playerId = getPlayerId();
+  const accessToken = await getValidAccessToken();
   const headers = new Headers(options.headers);
 
   const hasBody = options.body !== undefined && options.body !== null;
@@ -18,8 +15,8 @@ async function fetchWithAuth(
     headers.set("Content-Type", "application/json");
   }
 
-  if (playerId) {
-    headers.set("x-player-id", playerId);
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
   }
 
   const url = `${API_BASE_URL}${path}`;
@@ -34,6 +31,10 @@ export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetchWithAuth(path, { method: "GET" });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearSession();
+    }
+
     const error = await response.json().catch(() => ({ message: "Unknown error" }));
     throw new Error(error.message || `HTTP ${response.status}`);
   }
@@ -48,6 +49,10 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearSession();
+    }
+
     const error = await response.json().catch(() => ({ message: "Unknown error" }));
     throw new Error(error.message || `HTTP ${response.status}`);
   }

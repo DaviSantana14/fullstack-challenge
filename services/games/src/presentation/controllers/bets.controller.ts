@@ -1,9 +1,9 @@
 import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
-  ApiHeader,
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
@@ -17,7 +17,7 @@ import { GetMyCurrentBetUseCase } from "../../application/use-cases/get-my-curre
 import { PlaceBetUseCase } from "../../application/use-cases/place-bet.use-case";
 import { CurrentUser } from "../auth/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/authenticated-user.interface";
-import { MvpAuthGuard } from "../auth/mvp-auth.guard";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { BetResponseDto } from "../dtos/bet-response.dto";
 import { BetResponseOrNullDto } from "../dtos/bet-response-or-null.dto";
 import { CashoutRequestDto } from "../dtos/cashout-request.dto";
@@ -36,14 +36,14 @@ export class BetsController {
   ) {}
 
   @Post()
-  @UseGuards(MvpAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "Place a bet in the current betting round" })
-  @ApiHeader({ name: "x-player-id", required: true, example: "player-1" })
+  @ApiBearerAuth()
   @ApiBody({ type: PlaceBetRequestDto })
   @ApiOkResponse({ type: BetResponseDto })
   @ApiBadRequestResponse({ description: "Invalid bet amount." })
   @ApiConflictResponse({ description: "No active betting round or player already has a bet." })
-  @ApiUnauthorizedResponse({ description: "Missing x-player-id header." })
+  @ApiUnauthorizedResponse({ description: "Missing or invalid bearer token." })
   async placeBet(
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: PlaceBetRequestDto,
@@ -63,14 +63,14 @@ export class BetsController {
   }
 
   @Get("me")
-  @UseGuards(MvpAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "Get paginated bet history for the current player" })
-  @ApiHeader({ name: "x-player-id", required: true, example: "player-1" })
+  @ApiBearerAuth()
   @ApiQuery({ name: "limit", required: false, example: 20, description: "Default 20, maximum 50." })
   @ApiQuery({ name: "cursor", required: false, example: "eyJwbGFjZWRBdCI6IjIwMjYtMDUtMDlUMjM6MzI6MTguNjQzWiIsImlkIjoiYmV0XzEyMyJ9" })
   @ApiOkResponse({ type: PaginatedBetsResponseDto })
   @ApiBadRequestResponse({ description: "Invalid limit or cursor." })
-  @ApiUnauthorizedResponse({ description: "Missing x-player-id header." })
+  @ApiUnauthorizedResponse({ description: "Missing or invalid bearer token." })
   async getMyBets(
     @CurrentUser() user: AuthenticatedUser,
     @Query("limit") limit?: string,
@@ -86,11 +86,11 @@ export class BetsController {
   }
 
   @Get("me/current")
-  @UseGuards(MvpAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "Get the current player's active bet, if one exists" })
-  @ApiHeader({ name: "x-player-id", required: true, example: "player-1" })
+  @ApiBearerAuth()
   @ApiOkResponse({ type: BetResponseOrNullDto })
-  @ApiUnauthorizedResponse({ description: "Missing x-player-id header." })
+  @ApiUnauthorizedResponse({ description: "Missing or invalid bearer token." })
   async getMyCurrentBet(
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<BetResponseOrNullDto> {
@@ -100,13 +100,13 @@ export class BetsController {
   }
 
   @Post("me/current/cashout")
-  @UseGuards(MvpAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "Cash out the current player's active bet" })
-  @ApiHeader({ name: "x-player-id", required: true, example: "player-1" })
+  @ApiBearerAuth()
   @ApiBody({ type: CashoutRequestDto })
   @ApiOkResponse({ type: BetResponseDto })
   @ApiConflictResponse({ description: "No in-progress round or no accepted current-round bet is available." })
-  @ApiUnauthorizedResponse({ description: "Missing x-player-id header." })
+  @ApiUnauthorizedResponse({ description: "Missing or invalid bearer token." })
   async cashoutCurrentBet(
     @CurrentUser() user: AuthenticatedUser,
     @Body() _body: CashoutRequestDto,

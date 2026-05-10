@@ -27,7 +27,7 @@ import { GamesController } from "./presentation/controllers/games.controller";
 import { InternalRoundsController } from "./presentation/controllers/internal-rounds.controller";
 import { RoundsController } from "./presentation/controllers/rounds.controller";
 import { GameGateway } from "./presentation/gateways/game.gateway";
-import { MvpAuthGuard } from "./presentation/auth/mvp-auth.guard";
+import { JwtAuthGuard } from "./presentation/auth/jwt-auth.guard";
 
 @Module({
   imports: [
@@ -59,7 +59,7 @@ import { MvpAuthGuard } from "./presentation/auth/mvp-auth.guard";
     GameEventsService,
     RoundEngineService,
     GameGateway,
-    MvpAuthGuard,
+    JwtAuthGuard,
     CashoutCurrentBetUseCase,
     CrashCurrentRoundUseCase,
     CreateRoundUseCase,
