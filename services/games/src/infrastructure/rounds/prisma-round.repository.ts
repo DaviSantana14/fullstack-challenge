@@ -32,11 +32,11 @@ export class PrismaRoundRepository implements RoundRepository {
   }
 
   async getNextRoundNumber(): Promise<number> {
-    const result = await this.prisma.round.aggregate({
-      _max: { roundNumber: true },
-    });
+    const [result] = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+      SELECT nextval('round_number_seq') AS "nextval"
+    `;
 
-    return (result._max.roundNumber ?? 0) + 1;
+    return Number(result.nextval);
   }
 
   async createBettingRound(input: CreateRoundInput): Promise<RoundRecord> {
