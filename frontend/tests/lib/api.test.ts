@@ -8,7 +8,7 @@ const mockFetch = mock(async (_input: string | URL | Request, _init?: RequestIni
 describe("apiGet", () => {
   beforeEach(() => {
     mockFetch.mockClear();
-    globalThis.fetch = mockFetch as typeof fetch;
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
     // Set a valid session so getValidAccessToken returns a token
     localStorage.setItem(
       "crashGameAuthSession",
@@ -61,7 +61,7 @@ describe("apiGet", () => {
 describe("apiPost", () => {
   beforeEach(() => {
     mockFetch.mockClear();
-    globalThis.fetch = mockFetch as typeof fetch;
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
     localStorage.setItem(
       "crashGameAuthSession",
       JSON.stringify({

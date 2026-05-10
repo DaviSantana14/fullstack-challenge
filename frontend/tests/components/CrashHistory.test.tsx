@@ -35,9 +35,9 @@ describe("CrashHistory", () => {
       wrapper: createWrapper(),
     });
 
-    expect(screen.getByText("2.50x")).toBeInTheDocument();
-    expect(screen.getByText("1.50x")).toBeInTheDocument();
-    expect(screen.getByText("0.80x")).toBeInTheDocument();
+    expect(screen.getByText("2.50x")).toBeDefined();
+    expect(screen.getByText("1.50x")).toBeDefined();
+    expect(screen.getByText("0.80x")).toBeDefined();
   });
 
   test("shows skeletons when loading", () => {
@@ -54,7 +54,7 @@ describe("CrashHistory", () => {
       wrapper: createWrapper(),
     });
 
-    expect(screen.getByText(/Nenhum histórico/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nenhum histórico/i)).toBeDefined();
   });
 
   test("green threshold: 2.00x and above", () => {

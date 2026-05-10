@@ -1,14 +1,25 @@
 import {
   WebSocketGateway,
   WebSocketServer,
+  OnGatewayInit,
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from "@nestjs/websockets";
 import type { Server, Socket } from "socket.io";
 import { Injectable } from "@nestjs/common";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import { GameEventsService } from "../../application/events/game-events.service";
 import type { RoundStateEvent, BetPlacedEvent, BetCashedOutEvent, MultiplierTickEvent } from "../../application/events/game-events.service";
 import type { BetRecord } from "../../domain/bets/bet.types";
+
+const keycloakIssuer =
+  process.env.KEYCLOAK_ISSUER ?? "http://localhost:8080/realms/crash-game";
+const keycloakJwksUri =
+  process.env.KEYCLOAK_JWKS_URI ??
+  "http://keycloak:8080/realms/crash-game/protocol/openid-connect/certs";
+const keycloakClientId =
+  process.env.KEYCLOAK_CLIENT_ID ?? "crash-game-client";
+const keycloakJwks = createRemoteJWKSet(new URL(keycloakJwksUri));
 
 @Injectable()
 @WebSocketGateway({
@@ -17,7 +28,7 @@ import type { BetRecord } from "../../domain/bets/bet.types";
   },
   namespace: "/game",
 })
-export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class GameGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
@@ -54,6 +65,27 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.server.emit("round:multiplier", payload);
       }),
     );
+  }
+
+  afterInit(server: Server): void {
+    server.use(async (socket, next) => {
+      const token = socket.handshake.auth?.token as string | undefined;
+      if (!token) {
+        return next(new Error("Authentication required"));
+      }
+      try {
+        const { payload } = await jwtVerify(token, keycloakJwks, {
+          issuer: keycloakIssuer,
+        });
+        if (!payload.sub || payload.azp !== keycloakClientId) {
+          return next(new Error("Invalid token"));
+        }
+        (socket as any).playerId = payload.sub;
+        next();
+      } catch {
+        next(new Error("Invalid token"));
+      }
+    });
   }
 
   handleConnection(client: Socket): void {
