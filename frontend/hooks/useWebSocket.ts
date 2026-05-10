@@ -25,7 +25,7 @@ export function useWebSocket() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const socket = io(WS_URL, {
+    const socket = io(`${WS_URL}/game`, {
       transports: ["websocket", "polling"],
       path: "/socket.io",
     });
