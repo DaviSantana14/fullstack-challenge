@@ -22,8 +22,6 @@ enum BetStatus {
   REJECTED
   CASHED_OUT
   LOST
-  REFUNDED
-  VOIDED
 }
 
 model Round {

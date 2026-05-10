@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { io } from "socket.io-client";
 import { getPlayerId, getValidAccessToken } from "@/lib/auth";
@@ -23,6 +23,7 @@ function upsertBet(current: Bet[] | undefined, bet: Bet): Bet[] {
 
 export function useWebSocket() {
   const queryClient = useQueryClient();
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     let socket: ReturnType<typeof io> | undefined;
@@ -39,6 +40,7 @@ export function useWebSocket() {
       });
 
       socket.on("connect", () => {
+        setIsConnected(true);
         console.log("WebSocket connected");
       });
 
@@ -47,6 +49,7 @@ export function useWebSocket() {
       });
 
       socket.on("disconnect", () => {
+        setIsConnected(false);
         console.log("WebSocket disconnected");
       });
 
@@ -102,8 +105,10 @@ export function useWebSocket() {
 
     return () => {
       cancelled = true;
+      setIsConnected(false);
       socket?.disconnect();
     };
   }, [queryClient]);
 
+  return { isConnected };
 }

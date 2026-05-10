@@ -6,37 +6,43 @@ import { apiGet, apiPost } from "@/lib/api";
 import { useWebSocket } from "./useWebSocket";
 import type { Round, Bet, Wallet, RoundHistoryItem } from "@/types/game";
 
-function useCurrentRound() {
+function useCurrentRound(isConnected: boolean) {
   return useQuery({
     queryKey: ["round", "current"],
     queryFn: async () => {
       const response = await apiGet<{ round: Round | null }>("/games/rounds/current");
       return response.round;
     },
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      if (data?.status === "IN_PROGRESS") return 500;
-      return 2000;
-    },
+    refetchInterval: isConnected
+      ? false
+      : (query) => {
+          const data = query.state.data;
+          if (data?.status === "IN_PROGRESS") return 500;
+          return 2000;
+        },
+    staleTime: isConnected ? 30000 : 0,
   });
 }
 
-function useMyCurrentBet() {
+function useMyCurrentBet(isConnected: boolean) {
   return useQuery({
     queryKey: ["bet", "current"],
     queryFn: async () => {
       const response = await apiGet<{ bet: Bet | null }>("/games/bets/me/current");
       return response.bet;
     },
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      if (data?.status === "CASHOUT_PENDING") return 500;
-      return 2000;
-    },
+    refetchInterval: isConnected
+      ? false
+      : (query) => {
+          const data = query.state.data;
+          if (data?.status === "CASHOUT_PENDING") return 500;
+          return 2000;
+        },
+    staleTime: isConnected ? 30000 : 0,
   });
 }
 
-function useWallet() {
+function useWallet(isConnected: boolean) {
   return useQuery({
     queryKey: ["wallet"],
     queryFn: async () => {
@@ -50,23 +56,26 @@ function useWallet() {
         throw error;
       }
     },
-    refetchInterval: 5000,
+    refetchInterval: isConnected ? false : 5000,
+    staleTime: isConnected ? 30000 : 0,
   });
 }
 
-function useRoundHistory() {
+function useRoundHistory(isConnected: boolean) {
   return useQuery({
     queryKey: ["rounds", "history"],
     queryFn: () => apiGet<RoundHistoryItem[]>("/games/rounds/history"),
-    refetchInterval: 10000,
+    refetchInterval: isConnected ? false : 10000,
+    staleTime: isConnected ? 30000 : 0,
   });
 }
 
-function useCurrentRoundBets() {
+function useCurrentRoundBets(isConnected: boolean) {
   return useQuery({
     queryKey: ["bets", "current-round"],
     queryFn: () => apiGet<Bet[]>("/games/bets/current-round"),
-    refetchInterval: 3000,
+    refetchInterval: isConnected ? false : 3000,
+    staleTime: isConnected ? 30000 : 0,
   });
 }
 
@@ -91,13 +100,13 @@ export function useGameState() {
   }
 
   // WebSocket for real-time updates
-  useWebSocket();
+  const { isConnected } = useWebSocket();
 
-  const roundQuery = useCurrentRound();
-  const myBetQuery = useMyCurrentBet();
-  const walletQuery = useWallet();
-  const historyQuery = useRoundHistory();
-  const currentRoundBetsQuery = useCurrentRoundBets();
+  const roundQuery = useCurrentRound(isConnected);
+  const myBetQuery = useMyCurrentBet(isConnected);
+  const walletQuery = useWallet(isConnected);
+  const historyQuery = useRoundHistory(isConnected);
+  const currentRoundBetsQuery = useCurrentRoundBets(isConnected);
 
   const round = roundQuery.data ?? null;
   const myBet = myBetQuery.data ?? null;
@@ -228,6 +237,7 @@ export function useGameState() {
     isWalletLoading: walletQuery.isLoading,
     isHistoryLoading: historyQuery.isLoading,
     isBetsLoading: currentRoundBetsQuery.isLoading,
+    isWsConnected: isConnected,
     roundError: roundQuery.error,
     betError: myBetQuery.error,
     walletError: walletQuery.error,
