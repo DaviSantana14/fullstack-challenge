@@ -1,5 +1,14 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { WALLET_REPOSITORY, type WalletRepository } from "../../domain/wallets/wallet.repository";
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { Prisma } from "../../../generated/prisma/client";
+import {
+  WALLET_REPOSITORY,
+  type WalletRepository,
+} from "../../domain/wallets/wallet.repository";
 import type { WalletRecord } from "../../domain/wallets/wallet.types";
 
 @Injectable()
@@ -17,13 +26,38 @@ export class FundWalletForDevelopmentUseCase {
     }
 
     const amountInCents = this.parseAmountInCents(amountInCentsInput);
-    const wallet = await this.walletRepository.creditManualAdjustment(
+    let wallet = await this.walletRepository.creditManualAdjustment(
       normalizedPlayerId,
       amountInCents,
     );
 
     if (!wallet) {
-      throw new NotFoundException("Wallet not found for this player.");
+      try {
+        wallet = await this.walletRepository.createForPlayer(normalizedPlayerId);
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        ) {
+          wallet = await this.walletRepository.creditManualAdjustment(
+            normalizedPlayerId,
+            amountInCents,
+          );
+          if (!wallet) {
+            throw new NotFoundException("Wallet was created but funding failed.");
+          }
+          return wallet;
+        }
+        throw error;
+      }
+
+      wallet = await this.walletRepository.creditManualAdjustment(
+        normalizedPlayerId,
+        amountInCents,
+      );
+      if (!wallet) {
+        throw new NotFoundException("Wallet was created but funding failed.");
+      }
     }
 
     return wallet;

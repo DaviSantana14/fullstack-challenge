@@ -96,10 +96,24 @@ describe("wallet use cases", () => {
     );
   });
 
-  test("FundWalletForDevelopmentUseCase rejects an absent wallet", async () => {
-    const useCase = new FundWalletForDevelopmentUseCase(makeWalletRepository());
+  test("FundWalletForDevelopmentUseCase auto-creates wallet when absent", async () => {
+    const created = makeWallet({ playerId: "player-1", balanceInCents: BigInt(0) });
+    const funded = makeWallet({ playerId: "player-1", balanceInCents: BigInt(100) });
+    const creditMock = mock(async () => null);
+    creditMock
+      .mockImplementationOnce(async () => null) // first credit fails
+      .mockImplementationOnce(async () => funded); // second credit succeeds
 
-    await expect(useCase.execute("player-1", "100")).rejects.toBeInstanceOf(NotFoundException);
+    const repository = makeWalletRepository({
+      creditManualAdjustment: creditMock,
+      createForPlayer: mock(async () => created),
+    });
+    const useCase = new FundWalletForDevelopmentUseCase(repository);
+
+    const wallet = await useCase.execute("player-1", "100");
+    expect(wallet).toBe(funded);
+    expect(repository.createForPlayer).toHaveBeenCalledWith("player-1");
+    expect(creditMock).toHaveBeenCalledTimes(2);
   });
 
   test("DebitWalletForBetUseCase delegates debit parameters", async () => {
