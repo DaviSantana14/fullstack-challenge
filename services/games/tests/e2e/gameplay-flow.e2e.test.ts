@@ -434,7 +434,7 @@ async function waitForStack(): Promise<void> {
   }, 15_000);
 }
 
-describe("gameplay E2E", () => {
+describe.serial("gameplay E2E", () => {
   beforeAll(async () => {
     await waitForStack();
   }, 30_000);
