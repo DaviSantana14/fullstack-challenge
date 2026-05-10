@@ -3,8 +3,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, useCallback } from "react";
 import { apiGet, apiPost } from "@/lib/api";
+import { calculateDisplayMultiplier } from "@/lib/multiplier";
 import { useWebSocket } from "./useWebSocket";
-import type { Round, Bet, Wallet, RoundHistoryItem } from "@/types/game";
+import type { Round, Bet, Wallet, RoundHistoryItem, RoundMultiplierSnapshot } from "@/types/game";
 
 function useCurrentRound(isConnected: boolean) {
   return useQuery({
@@ -298,22 +299,17 @@ function useMultiplier(round: Round | null): number {
       return round?.crashPointHundredths ? round.crashPointHundredths / 100 : 1.0;
     }
 
-    // Prefer authoritative server value when available
-    const serverHundredths = queryClient.getQueryData<number>([
+    const snapshot = queryClient.getQueryData<RoundMultiplierSnapshot>([
       "round",
       "multiplier",
     ]);
-    if (serverHundredths !== undefined) {
-      return serverHundredths / 100;
-    }
 
-    const startedAt = new Date(round.startedAt).getTime();
-    const elapsedMs = Math.max(0, Date.now() - startedAt);
-    const elapsedSeconds = elapsedMs / 1000;
-
-    // Formula: e^(0.06 * t), must match server-side getMultiplierHundredths exactly
-    const raw = Math.exp(0.06 * elapsedSeconds);
-    return Math.max(1.0, Math.floor(raw * 100) / 100);
+    return calculateDisplayMultiplier({
+      startedAt: round.startedAt,
+      nowMs: Date.now(),
+      snapshot,
+      roundId: round.id,
+    });
   }, [round, queryClient]);
 
   useEffect(() => {

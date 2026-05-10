@@ -49,6 +49,13 @@ export interface RoundHistoryItem {
   serverSeedHash: string;
 }
 
+export interface RoundMultiplierSnapshot {
+  roundId: string;
+  multiplierHundredths: number;
+  serverTime: string;
+  receivedAt: number;
+}
+
 export interface GameState {
   round: Round | null;
   myBet: Bet | null;

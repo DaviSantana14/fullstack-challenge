@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { io } from "socket.io-client";
 import { getPlayerId, getValidAccessToken } from "@/lib/auth";
-import type { Round, Bet } from "@/types/game";
+import type { Round, Bet, RoundMultiplierSnapshot } from "@/types/game";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "http://localhost:4001";
 
@@ -55,16 +55,19 @@ export function useWebSocket() {
 
       socket.on("round:betting_started", (payload: { round: Round }) => {
         queryClient.setQueryData(["round", "current"], payload.round);
+        queryClient.removeQueries({ queryKey: ["round", "multiplier"], exact: true });
         queryClient.setQueryData(["bets", "current-round"], []);
         queryClient.invalidateQueries({ queryKey: ["bet", "current"] });
       });
 
       socket.on("round:started", (payload: { round: Round }) => {
         queryClient.setQueryData(["round", "current"], payload.round);
+        queryClient.removeQueries({ queryKey: ["round", "multiplier"], exact: true });
       });
 
       socket.on("round:crashed", (payload: { round: Round }) => {
         queryClient.setQueryData(["round", "current"], payload.round);
+        queryClient.removeQueries({ queryKey: ["round", "multiplier"], exact: true });
         queryClient.invalidateQueries({ queryKey: ["bet", "current"] });
         queryClient.invalidateQueries({ queryKey: ["wallet"] });
         queryClient.invalidateQueries({ queryKey: ["rounds", "history"] });
@@ -97,8 +100,13 @@ export function useWebSocket() {
 
       socket.on(
         "round:multiplier",
-        (payload: { roundId: string; multiplierHundredths: number }) => {
-          queryClient.setQueryData<number>(["round", "multiplier"], payload.multiplierHundredths);
+        (payload: { roundId: string; multiplierHundredths: number; serverTime: string }) => {
+          queryClient.setQueryData<RoundMultiplierSnapshot>(["round", "multiplier"], {
+            roundId: payload.roundId,
+            multiplierHundredths: payload.multiplierHundredths,
+            serverTime: payload.serverTime,
+            receivedAt: Date.now(),
+          });
         },
       );
     })();
