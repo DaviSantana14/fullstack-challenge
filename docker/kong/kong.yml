@@ -36,6 +36,14 @@ services:
               credentials: false
               max_age: 3600
               preflight_continue: false
+          - name: rate-limiting
+            config:
+              minute: 300
+              hour: 5000
+              limit_by: ip
+              policy: local
+              fault_tolerant: true
+              hide_client_headers: false
 
   - name: wallets-service
     url: http://wallets:4002
@@ -72,3 +80,11 @@ services:
               credentials: false
               max_age: 3600
               preflight_continue: false
+          - name: rate-limiting
+            config:
+              minute: 120
+              hour: 2000
+              limit_by: ip
+              policy: local
+              fault_tolerant: true
+              hide_client_headers: false
