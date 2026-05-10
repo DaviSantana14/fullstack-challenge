@@ -89,6 +89,8 @@ function useCurrentRoundBets(isConnected: boolean) {
 export function useGameState() {
   const queryClient = useQueryClient();
   const [betAmount, setBetAmount] = useState<string>("2.50");
+  const [isAutoCashoutEnabled, setIsAutoCashoutEnabled] = useState(false);
+  const [autoCashoutMultiplier, setAutoCashoutMultiplier] = useState<string>("2.00");
 
   async function refreshGameState(options?: { wallet?: boolean; history?: boolean; bets?: boolean }) {
     await Promise.all([
@@ -122,8 +124,11 @@ export function useGameState() {
   const bets = currentRoundBetsQuery.data ?? [];
 
   const placeBetMutation = useMutation({
-    mutationFn: (amountInCents: string) =>
-      apiPost<Bet>("/games/bets", { amountInCents }),
+    mutationFn: (input: {
+      amountInCents: string;
+      autoCashoutMultiplierHundredths?: number;
+    }) =>
+      apiPost<Bet>("/games/bets", input),
     onSuccess: async () => {
       await refreshGameState({ wallet: true, bets: true });
     },
@@ -223,6 +228,10 @@ export function useGameState() {
     bettingCountdownMs,
     betAmount,
     setBetAmount,
+    isAutoCashoutEnabled,
+    setIsAutoCashoutEnabled,
+    autoCashoutMultiplier,
+    setAutoCashoutMultiplier,
     multiplier,
     canBet,
     canCashout,

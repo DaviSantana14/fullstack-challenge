@@ -17,6 +17,9 @@ export class BetResponseDto {
   @ApiProperty({ example: "ACCEPTED", enum: ["PENDING", "ACCEPTED", "REJECTED", "CASHED_OUT", "LOST"] })
   status: string;
 
+  @ApiPropertyOptional({ example: 200, nullable: true, description: "Auto cashout target multiplier in hundredths, e.g. 200 means 2.00x." })
+  autoCashoutMultiplierHundredths: number | null;
+
   @ApiPropertyOptional({ example: 150, nullable: true, description: "Cashout multiplier in hundredths, e.g. 150 means 1.50x." })
   cashoutMultiplierHundredths: number | null;
 
@@ -54,6 +57,7 @@ export class BetResponseDto {
       playerId: bet.playerId,
       amountInCents: bet.amountInCents.toString(),
       status: bet.status,
+      autoCashoutMultiplierHundredths: bet.autoCashoutMultiplierHundredths,
       cashoutMultiplierHundredths: bet.cashoutMultiplierHundredths,
       payoutInCents: bet.payoutInCents?.toString() ?? null,
       correlationId: bet.correlationId,

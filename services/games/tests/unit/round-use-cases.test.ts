@@ -76,6 +76,7 @@ function makeBetRepository(
 ): BetRepository {
   return {
     findByRoundId: mock(async () => []),
+    findAutoCashoutCandidates: mock(async () => []),
     findPlayerBetsPage: mock(async () => ({ items: [], hasNextPage: false })),
     findByRoundIdAndPlayerId: mock(async () => null),
     findByCorrelationId: mock(async () => null),
@@ -261,6 +262,7 @@ describe("round use cases", () => {
           playerId: "player-1",
           amountInCents: BigInt(1000),
           status: "ACCEPTED" as const,
+          autoCashoutMultiplierHundredths: null,
           cashoutMultiplierHundredths: null,
           payoutInCents: null,
           correlationId: "correlation-1",
@@ -378,6 +380,7 @@ describe("round use cases", () => {
       playerId: "player-1",
       amountInCents: BigInt(1000),
       status: "LOST" as const,
+      autoCashoutMultiplierHundredths: null,
       cashoutMultiplierHundredths: null,
       payoutInCents: null,
       correlationId: "correlation-1",

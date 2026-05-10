@@ -39,6 +39,7 @@ function makeBet(overrides: Partial<BetRecord> = {}): BetRecord {
     playerId: "player-1",
     amountInCents: BigInt(1000),
     status: "PENDING",
+    autoCashoutMultiplierHundredths: null,
     cashoutMultiplierHundredths: null,
     payoutInCents: null,
     correlationId: "correlation-1",
@@ -76,6 +77,7 @@ function makeBetRepository(
 ): BetRepository {
   return {
     findByRoundId: mock(async () => []),
+    findAutoCashoutCandidates: mock(async () => []),
     findPlayerBetsPage: mock(async () => ({ items: [], hasNextPage: false })),
     findByRoundIdAndPlayerId: mock(async () => null),
     findByCorrelationId: mock(async () => null),
@@ -221,6 +223,71 @@ describe("PlaceBetUseCase", () => {
       }),
     );
     expect(events.emit).toHaveBeenCalledWith("bet:placed", { bet });
+  });
+
+  test("persists a valid auto cashout target when placing a bet", async () => {
+    const betRepository = makeBetRepository({
+      createPendingBet: mock(async (input) =>
+        makeBet({
+          amountInCents: input.amountInCents,
+          correlationId: input.correlationId,
+          autoCashoutMultiplierHundredths:
+            input.autoCashoutMultiplierHundredths ?? null,
+        }),
+      ),
+      markPendingBetAsAcceptedIfRoundActive: mock(async () =>
+        makeBet({
+          status: "ACCEPTED",
+          acceptedAt: now,
+          autoCashoutMultiplierHundredths: 200,
+        }),
+      ),
+    });
+    const useCase = new PlaceBetUseCase(
+      makeRoundRepository(),
+      betRepository,
+      makeWalletsClient({
+        correlationId: "correlation-1",
+        betId: "bet-1",
+        status: "APPROVED",
+        reason: null,
+        walletTransactionId: "transaction-1",
+        processedAt: now.toISOString(),
+      }),
+      makeEvents(),
+    );
+
+    const bet = await useCase.execute("player-1", "1000", undefined, 200);
+
+    expect(bet.autoCashoutMultiplierHundredths).toBe(200);
+    expect(betRepository.createPendingBet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        autoCashoutMultiplierHundredths: 200,
+      }),
+    );
+  });
+
+  test("rejects invalid auto cashout targets before creating a bet", async () => {
+    const betRepository = makeBetRepository();
+    const walletsClient = makeWalletsClient({});
+    const useCase = new PlaceBetUseCase(
+      makeRoundRepository(),
+      betRepository,
+      walletsClient,
+      makeEvents(),
+    );
+
+    await expect(useCase.execute("player-1", "1000", undefined, 100)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(useCase.execute("player-1", "1000", undefined, 100001)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(useCase.execute("player-1", "1000", undefined, 150.5)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(betRepository.createPendingBet).not.toHaveBeenCalled();
+    expect(walletsClient.send).not.toHaveBeenCalled();
   });
 
   test("accepts minimum and maximum bet amounts", async () => {

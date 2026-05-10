@@ -122,6 +122,7 @@ export class GameGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       playerId: bet.playerId,
       amountInCents: bet.amountInCents.toString(),
       status: bet.status,
+      autoCashoutMultiplierHundredths: bet.autoCashoutMultiplierHundredths,
       cashoutMultiplierHundredths: bet.cashoutMultiplierHundredths,
       payoutInCents: bet.payoutInCents?.toString() ?? null,
       placedAt: bet.placedAt.toISOString(),

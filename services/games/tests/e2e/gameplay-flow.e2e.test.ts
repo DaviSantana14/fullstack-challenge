@@ -42,6 +42,7 @@ interface BetResponse {
   playerId: string;
   amountInCents: string;
   status: string;
+  autoCashoutMultiplierHundredths: number | null;
   cashoutMultiplierHundredths: number | null;
   payoutInCents: string | null;
   correlationId: string | null;

@@ -19,6 +19,7 @@ function makeBet(overrides: Partial<BetRecord> = {}): BetRecord {
     playerId: "player-1",
     amountInCents: BigInt(1000),
     status: "PENDING",
+    autoCashoutMultiplierHundredths: null,
     cashoutMultiplierHundredths: null,
     payoutInCents: null,
     correlationId: "correlation-1",
@@ -39,6 +40,7 @@ function makeBetRepository(
 ): BetRepository {
   return {
     findByRoundId: mock(async () => []),
+    findAutoCashoutCandidates: mock(async () => []),
     findPlayerBetsPage: mock(async () => ({ items: [], hasNextPage: false })),
     findByRoundIdAndPlayerId: mock(async () => null),
     findByCorrelationId: mock(async () => makeBet()),

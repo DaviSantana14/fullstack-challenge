@@ -52,6 +52,7 @@ export class BetsController {
       user.playerId,
       body.amountInCents,
       body.clientSeed,
+      body.autoCashoutMultiplierHundredths,
     );
 
     return BetResponseDto.fromBet(bet);

@@ -51,6 +51,7 @@ model Bet {
   playerId                   String
   amountInCents              BigInt
   status                     BetStatus
+  autoCashoutMultiplierHundredths Int?
   cashoutMultiplierHundredths Int?
   payoutInCents              BigInt?
   correlationId              String?   @unique

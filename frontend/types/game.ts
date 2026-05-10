@@ -20,6 +20,7 @@ export interface Bet {
   playerId: string;
   amountInCents: string;
   status: "PENDING" | "ACCEPTED" | "REJECTED" | "CASHOUT_PENDING" | "CASHED_OUT" | "LOST";
+  autoCashoutMultiplierHundredths: number | null;
   cashoutMultiplierHundredths: number | null;
   payoutInCents: string | null;
   correlationId: string | null;

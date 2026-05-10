@@ -6,6 +6,7 @@ export interface CreateAcceptedBetInput {
   roundId: string;
   playerId: string;
   amountInCents: bigint;
+  autoCashoutMultiplierHundredths?: number | null;
 }
 
 export interface CreatePendingBetInput {
@@ -13,6 +14,7 @@ export interface CreatePendingBetInput {
   playerId: string;
   amountInCents: bigint;
   correlationId: string;
+  autoCashoutMultiplierHundredths?: number | null;
 }
 
 export interface StartCashoutInput {
@@ -40,6 +42,10 @@ export interface FindPlayerBetsPageResult {
 
 export interface BetRepository {
   findByRoundId(roundId: string): Promise<BetRecord[]>;
+  findAutoCashoutCandidates(
+    roundId: string,
+    multiplierHundredths: number,
+  ): Promise<BetRecord[]>;
   findPlayerBetsPage(input: FindPlayerBetsPageInput): Promise<FindPlayerBetsPageResult>;
   findByRoundIdAndPlayerId(roundId: string, playerId: string): Promise<BetRecord | null>;
   findByCorrelationId(correlationId: string): Promise<BetRecord | null>;

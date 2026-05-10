@@ -27,6 +27,8 @@ import {
 
 const MIN_BET_AMOUNT_IN_CENTS = BigInt(100);
 const MAX_BET_AMOUNT_IN_CENTS = BigInt(100_000);
+const MIN_AUTO_CASHOUT_MULTIPLIER_HUNDREDTHS = 101;
+const MAX_AUTO_CASHOUT_MULTIPLIER_HUNDREDTHS = 100_000;
 
 @Injectable()
 export class PlaceBetUseCase {
@@ -44,8 +46,13 @@ export class PlaceBetUseCase {
     playerId: string,
     amountInCentsInput: string,
     clientSeed?: string,
+    autoCashoutMultiplierHundredthsInput?: number,
   ): Promise<BetRecord> {
     const amountInCents = this.parseAmountInCents(amountInCentsInput);
+    const autoCashoutMultiplierHundredths =
+      this.parseAutoCashoutMultiplierHundredths(
+        autoCashoutMultiplierHundredthsInput,
+      );
     const round = await this.roundRepository.findCurrentBettingRound();
 
     if (!round) {
@@ -73,6 +80,7 @@ export class PlaceBetUseCase {
         playerId,
         amountInCents,
         correlationId: randomUUID(),
+        autoCashoutMultiplierHundredths,
       });
     } catch (error) {
       if (
@@ -160,5 +168,33 @@ export class PlaceBetUseCase {
     }
 
     return amountInCents;
+  }
+
+  private parseAutoCashoutMultiplierHundredths(
+    multiplierHundredthsInput?: number,
+  ): number | null {
+    if (multiplierHundredthsInput === undefined || multiplierHundredthsInput === null) {
+      return null;
+    }
+
+    if (!Number.isInteger(multiplierHundredthsInput)) {
+      throw new BadRequestException(
+        "autoCashoutMultiplierHundredths must be an integer.",
+      );
+    }
+
+    if (
+      multiplierHundredthsInput < MIN_AUTO_CASHOUT_MULTIPLIER_HUNDREDTHS
+    ) {
+      throw new BadRequestException("Minimum auto cashout multiplier is 1.01x.");
+    }
+
+    if (
+      multiplierHundredthsInput > MAX_AUTO_CASHOUT_MULTIPLIER_HUNDREDTHS
+    ) {
+      throw new BadRequestException("Maximum auto cashout multiplier is 1000.00x.");
+    }
+
+    return multiplierHundredthsInput;
   }
 }

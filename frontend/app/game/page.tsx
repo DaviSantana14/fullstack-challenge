@@ -48,6 +48,10 @@ export default function GamePage() {
     bettingCountdownMs,
     betAmount,
     setBetAmount,
+    isAutoCashoutEnabled,
+    setIsAutoCashoutEnabled,
+    autoCashoutMultiplier,
+    setAutoCashoutMultiplier,
     multiplier,
     canBet,
     canCashout,
@@ -288,11 +292,15 @@ export default function GamePage() {
           <BetControls
             betAmount={betAmount}
             setBetAmount={setBetAmount}
+            isAutoCashoutEnabled={isAutoCashoutEnabled}
+            setIsAutoCashoutEnabled={setIsAutoCashoutEnabled}
+            autoCashoutMultiplier={autoCashoutMultiplier}
+            setAutoCashoutMultiplier={setAutoCashoutMultiplier}
             canBet={canBet}
             canCashout={canCashout}
             isPending={isPending}
             multiplier={multiplier}
-            onPlaceBet={(amountInCents) => placeBet(amountInCents)}
+            onPlaceBet={placeBet}
             onCashout={cashout}
             isPlacingBet={isPlacingBet}
             isCashingOut={isCashingOut}
@@ -321,6 +329,14 @@ export default function GamePage() {
                 </CardAction>
               </CardHeader>
               <CardContent className="flex flex-col gap-2 text-sm">
+                {myBet.autoCashoutMultiplierHundredths && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">Auto cashout</span>
+                    <span className="font-semibold text-accent">
+                      {(myBet.autoCashoutMultiplierHundredths / 100).toFixed(2)}x
+                    </span>
+                  </div>
+                )}
                 {myBet.cashoutMultiplierHundredths && (
                   <div className="flex justify-between gap-3">
                     <span className="text-muted-foreground">Multiplicador</span>

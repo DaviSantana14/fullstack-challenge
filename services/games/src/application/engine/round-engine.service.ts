@@ -14,6 +14,7 @@ import {
 } from "../../domain/rounds/round.repository";
 import type { RoundRecord } from "../../domain/rounds/round.types";
 import { GameEventsService } from "../events/game-events.service";
+import { AutoCashoutService } from "../use-cases/auto-cashout.service";
 import { CrashCurrentRoundUseCase } from "../use-cases/crash-current-round.use-case";
 import { CreateRoundUseCase } from "../use-cases/create-round.use-case";
 import { StartCurrentRoundUseCase } from "../use-cases/start-current-round.use-case";
@@ -34,6 +35,7 @@ export class RoundEngineService implements OnModuleInit, OnModuleDestroy {
     private readonly createRoundUseCase: CreateRoundUseCase,
     private readonly startCurrentRoundUseCase: StartCurrentRoundUseCase,
     private readonly crashCurrentRoundUseCase: CrashCurrentRoundUseCase,
+    private readonly autoCashoutService: AutoCashoutService,
     private readonly gameEvents: GameEventsService,
   ) {}
 
@@ -138,6 +140,12 @@ export class RoundEngineService implements OnModuleInit, OnModuleDestroy {
       );
 
       if (multiplierHundredths < crashPointHundredths) {
+        await this.autoCashoutService.processRound({
+          roundId: round.id,
+          multiplierHundredths,
+          crashPointHundredths,
+        });
+
         this.gameEvents.emit("round:multiplier", {
           roundId: round.id,
           multiplierHundredths,

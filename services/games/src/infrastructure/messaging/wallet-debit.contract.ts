@@ -33,7 +33,7 @@ export interface WalletCreditRequestMessage {
   roundId: string;
   playerId: string;
   amountInCents: string;
-  reason: "CASHOUT_PAYOUT";
+  reason: "CASHOUT_PAYOUT" | "AUTO_CASHOUT_PAYOUT";
   occurredAt: string;
 }
 

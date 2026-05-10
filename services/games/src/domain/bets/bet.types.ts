@@ -10,6 +10,7 @@ export interface BetRecord {
     | "REJECTED"
     | "CASHED_OUT"
     | "LOST";
+  autoCashoutMultiplierHundredths: number | null;
   cashoutMultiplierHundredths: number | null;
   payoutInCents: bigint | null;
   correlationId: string | null;

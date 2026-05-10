@@ -28,6 +28,25 @@ export class PrismaBetRepository implements BetRepository {
     return bets as BetRecord[];
   }
 
+  async findAutoCashoutCandidates(
+    roundId: string,
+    multiplierHundredths: number,
+  ): Promise<BetRecord[]> {
+    const bets = await this.prisma.bet.findMany({
+      where: {
+        roundId,
+        status: $Enums.BetStatus.ACCEPTED,
+        autoCashoutMultiplierHundredths: {
+          not: null,
+          lte: multiplierHundredths,
+        },
+      },
+      orderBy: [{ placedAt: "asc" }],
+    });
+
+    return bets as BetRecord[];
+  }
+
   async findPlayerBetsPage(
     input: FindPlayerBetsPageInput,
   ): Promise<FindPlayerBetsPageResult> {
@@ -109,6 +128,8 @@ export class PrismaBetRepository implements BetRepository {
         playerId: input.playerId,
         amountInCents: input.amountInCents,
         status: $Enums.BetStatus.ACCEPTED,
+        autoCashoutMultiplierHundredths:
+          input.autoCashoutMultiplierHundredths ?? null,
         acceptedAt: new Date(),
       },
     });
@@ -124,6 +145,8 @@ export class PrismaBetRepository implements BetRepository {
         amountInCents: input.amountInCents,
         status: $Enums.BetStatus.PENDING,
         correlationId: input.correlationId,
+        autoCashoutMultiplierHundredths:
+          input.autoCashoutMultiplierHundredths ?? null,
       },
     });
 

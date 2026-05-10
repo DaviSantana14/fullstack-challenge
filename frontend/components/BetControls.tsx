@@ -18,11 +18,18 @@ import { Zap } from "lucide-react";
 interface BetControlsProps {
   betAmount: string;
   setBetAmount: (value: string) => void;
+  isAutoCashoutEnabled: boolean;
+  setIsAutoCashoutEnabled: (value: boolean) => void;
+  autoCashoutMultiplier: string;
+  setAutoCashoutMultiplier: (value: string) => void;
   canBet: boolean;
   canCashout: boolean;
   isPending: boolean;
   multiplier: number;
-  onPlaceBet: (amountInCents: string) => void | Promise<unknown>;
+  onPlaceBet: (input: {
+    amountInCents: string;
+    autoCashoutMultiplierHundredths?: number;
+  }) => void | Promise<unknown>;
   onCashout: () => void | Promise<unknown>;
   isPlacingBet: boolean;
   isCashingOut: boolean;
@@ -48,9 +55,29 @@ function moneyToCents(value: string): number | null {
   return Math.round(amount * 100);
 }
 
+function multiplierToHundredths(value: string): number | null {
+  const normalizedValue = value.trim().replace(",", ".");
+
+  if (!/^\d+(\.\d{0,2})?$/.test(normalizedValue)) {
+    return null;
+  }
+
+  const multiplier = Number.parseFloat(normalizedValue);
+
+  if (!Number.isFinite(multiplier)) {
+    return null;
+  }
+
+  return Math.round(multiplier * 100);
+}
+
 export function BetControls({
   betAmount,
   setBetAmount,
+  isAutoCashoutEnabled,
+  setIsAutoCashoutEnabled,
+  autoCashoutMultiplier,
+  setAutoCashoutMultiplier,
   canBet,
   canCashout,
   isPending,
@@ -75,8 +102,32 @@ export function BetControls({
       return;
     }
 
+    const autoCashoutMultiplierHundredths = isAutoCashoutEnabled
+      ? multiplierToHundredths(autoCashoutMultiplier)
+      : null;
+
+    if (isAutoCashoutEnabled) {
+      if (
+        autoCashoutMultiplierHundredths === null ||
+        autoCashoutMultiplierHundredths < 101
+      ) {
+        toast.error("Auto cashout mínimo: 1.01x");
+        return;
+      }
+
+      if (autoCashoutMultiplierHundredths > 100000) {
+        toast.error("Auto cashout máximo: 1000.00x");
+        return;
+      }
+    }
+
     try {
-      await onPlaceBet(amountInCents.toString());
+      await onPlaceBet({
+        amountInCents: amountInCents.toString(),
+        ...(autoCashoutMultiplierHundredths !== null
+          ? { autoCashoutMultiplierHundredths }
+          : {}),
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao apostar.");
     }
@@ -137,6 +188,51 @@ export function BetControls({
               R$ {Number.parseFloat(amount).toFixed(2)}
             </Button>
           ))}
+        </div>
+
+        <div className="rounded-lg border border-border bg-secondary/40 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-foreground">Auto cashout</div>
+              <div className="text-xs text-muted-foreground">
+                Sacar automaticamente ao atingir o alvo
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant={isAutoCashoutEnabled ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIsAutoCashoutEnabled(!isAutoCashoutEnabled)}
+              disabled={!canBet}
+              aria-pressed={isAutoCashoutEnabled}
+            >
+              {isAutoCashoutEnabled ? "Ligado" : "Desligado"}
+            </Button>
+          </div>
+
+          {isAutoCashoutEnabled && (
+            <div className="mt-3 flex flex-col gap-2">
+              <label htmlFor="auto-cashout-multiplier" className="text-sm font-medium text-muted-foreground">
+                Alvo
+              </label>
+              <div className="relative">
+                <Input
+                  id="auto-cashout-multiplier"
+                  type="number"
+                  min="1.01"
+                  max="1000"
+                  step="0.01"
+                  value={autoCashoutMultiplier}
+                  onChange={(e) => setAutoCashoutMultiplier(e.target.value)}
+                  disabled={!canBet}
+                  className="h-10 pr-9"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  x
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         <Separator />
