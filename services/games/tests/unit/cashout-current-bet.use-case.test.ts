@@ -5,6 +5,7 @@ import { of, throwError } from "rxjs";
 import type { GameEventsService } from "../../src/application/events/game-events.service";
 import { CashoutCurrentBetUseCase } from "../../src/application/use-cases/cashout-current-bet.use-case";
 import { getMultiplierHundredths } from "../../src/domain/multiplier/multiplier.service";
+import { calculateCrashPoint } from "../../src/domain/provably-fair/provably-fair.service";
 import type { BetRepository } from "../../src/domain/bets/bet.repository";
 import type { BetRecord } from "../../src/domain/bets/bet.types";
 import type { RoundRepository } from "../../src/domain/rounds/round.repository";
@@ -276,5 +277,76 @@ describe("CashoutCurrentBetUseCase", () => {
     );
 
     await expect(useCase.execute("player-1")).resolves.toBe(pendingBet);
+  });
+
+  test("rejects when cashout multiplier exceeds crash point", async () => {
+    const seed = "known-server-seed";
+    const crashPoint = calculateCrashPoint(seed);
+
+    // 3s elapsed gives multiplier ~119 (> 118 crash point)
+    const elapsedMs = 3000;
+    const testNow = new Date(startedAt.getTime() + elapsedMs);
+    Date.now = () => testNow.getTime();
+
+    const useCase = new CashoutCurrentBetUseCase(
+      makeRoundRepository({
+        findCurrentActiveRound: mock(async () => makeRound({ serverSeed: seed })),
+      }),
+      makeBetRepository(),
+      makeWalletsClient({}),
+      makeEvents(),
+    );
+
+    await expect(useCase.execute("player-1")).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  test("allows cashout when multiplier is below crash point", async () => {
+    const seed = "known-server-seed";
+
+    // 1s elapsed gives multiplier ~106 (< 118 crash point)
+    const elapsedMs = 1000;
+    const testNow = new Date(startedAt.getTime() + elapsedMs);
+    Date.now = () => testNow.getTime();
+
+    const expectedMultiplier = getMultiplierHundredths(elapsedMs);
+    const expectedPayout = (BigInt(1000) * BigInt(expectedMultiplier)) / BigInt(100);
+    const betRepository = makeBetRepository();
+    const walletsClient = makeWalletsClient({
+      correlationId: "cashout-correlation-1",
+      betId: "bet-1",
+      status: "APPROVED",
+      reason: null,
+      walletTransactionId: "transaction-1",
+      processedAt: testNow.toISOString(),
+    });
+    const events = makeEvents();
+    const useCase = new CashoutCurrentBetUseCase(
+      makeRoundRepository({
+        findCurrentActiveRound: mock(async () => makeRound({ serverSeed: seed })),
+      }),
+      betRepository,
+      walletsClient,
+      events,
+    );
+
+    const bet = await useCase.execute("player-1");
+
+    expect(bet.status).toBe("CASHED_OUT");
+    expect(betRepository.startCashout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        correlationId: "bet-correlation-1",
+        cashoutMultiplierHundredths: expectedMultiplier,
+        payoutInCents: expectedPayout,
+      }),
+    );
+    expect(walletsClient.send).toHaveBeenCalledWith(
+      WALLET_CREDIT_PATTERN,
+      expect.objectContaining({
+        betId: "bet-1",
+        amountInCents: expectedPayout.toString(),
+        reason: "CASHOUT_PAYOUT",
+      }),
+    );
+    expect(events.emit).toHaveBeenCalledWith("bet:cashed_out", { bet });
   });
 });

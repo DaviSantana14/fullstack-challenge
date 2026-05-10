@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { firstValueFrom, timeout } from "rxjs";
 import { GameEventsService } from "../events/game-events.service";
 import { getMultiplierHundredths } from "../../domain/multiplier/multiplier.service";
+import { calculateCrashPoint } from "../../domain/provably-fair/provably-fair.service";
 import { BET_REPOSITORY, type BetRepository } from "../../domain/bets/bet.repository";
 import type { BetRecord } from "../../domain/bets/bet.types";
 import { ROUND_REPOSITORY, type RoundRepository } from "../../domain/rounds/round.repository";
@@ -40,6 +41,15 @@ export class CashoutCurrentBetUseCase {
     }
 
     const cashoutMultiplierHundredths = this.getServerCashoutMultiplierHundredths(round.startedAt);
+
+    if (!round.serverSeed) {
+      throw new ConflictException("Round does not have a server seed.");
+    }
+    const crashPointHundredths = calculateCrashPoint(round.serverSeed);
+    if (cashoutMultiplierHundredths >= crashPointHundredths) {
+      throw new ConflictException("The round has already crashed.");
+    }
+
     const payoutInCents =
       (bet.amountInCents * BigInt(cashoutMultiplierHundredths)) / BigInt(100);
     const cashoutCorrelationId = randomUUID();
