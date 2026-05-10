@@ -11,13 +11,24 @@ interface InternalRequest {
 
 @Injectable()
 export class InternalApiGuard implements CanActivate {
+  private readonly expectedToken: string;
+
+  constructor() {
+    const token = process.env.INTERNAL_API_TOKEN;
+    if (!token) {
+      throw new Error(
+        "INTERNAL_API_TOKEN environment variable is not configured.",
+      );
+    }
+    this.expectedToken = token;
+  }
+
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<InternalRequest>();
     const tokenHeader = request.headers["x-internal-token"];
     const token = Array.isArray(tokenHeader) ? tokenHeader[0] : tokenHeader;
-    const expectedToken = process.env.INTERNAL_API_TOKEN ?? "dev-internal-token";
 
-    if (!token || token !== expectedToken) {
+    if (!token || token !== this.expectedToken) {
       throw new UnauthorizedException("Invalid internal API token.");
     }
 
