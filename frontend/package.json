@@ -7,7 +7,8 @@
     "build": "next build --webpack",
     "start": "next start --hostname 0.0.0.0 --port 3000",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.9",
@@ -27,11 +28,14 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "happy-dom": "^17.4.4",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
