@@ -29,7 +29,6 @@ services:
                 - Content-Type
                 - Date
                 - X-Auth-Token
-                - x-player-id
                 - Authorization
               exposed_headers:
                 - Content-Length
@@ -66,7 +65,6 @@ services:
                 - Content-Type
                 - Date
                 - X-Auth-Token
-                - x-player-id
                 - Authorization
               exposed_headers:
                 - Content-Length
