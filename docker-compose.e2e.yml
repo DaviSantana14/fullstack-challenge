@@ -1,0 +1,19 @@
+services:
+  kong:
+    environment:
+      KONG_E2E_UPSTREAM_REFRESH: "true"
+    depends_on:
+      games:
+        condition: service_healthy
+      wallets:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  games:
+    environment:
+      ROUND_ENGINE_ENABLED: "false"
+      ROUND_BETTING_SECONDS: "10"
+      ROUND_RESTART_DELAY_SECONDS: "3"

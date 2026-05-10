@@ -12,10 +12,10 @@ services:
       POSTGRES_DB: postgres
       POSTGRES_EXTRA_DATABASES: games,wallets
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
       - ./docker/postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin"]
+      test: [ "CMD-SHELL", "pg_isready -U admin -d postgres" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -34,7 +34,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -54,7 +54,19 @@ services:
     volumes:
       - ./docker/keycloak:/opt/keycloak/data/import:ro
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && cat <&3 | grep -q '200'"]
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\r
+
+            Host: localhost\r
+
+            Connection: close\r
+
+            \r
+
+            ' >&3 && cat <&3 | grep -q '200'"
+        ]
       interval: 10s
       timeout: 5s
       retries: 15
@@ -80,7 +92,7 @@ services:
     volumes:
       - ./docker/kong:/kong:ro
     healthcheck:
-      test: ["CMD", "kong", "health"]
+      test: [ "CMD", "kong", "health" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -107,7 +119,7 @@ services:
       rabbitmq:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:4001/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -sf http://localhost:4001/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -130,23 +142,56 @@ services:
       rabbitmq:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:4002/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -sf http://localhost:4002/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 15s
+  # ---------------------------------------------------------------------------
+  # Frontend
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+        NEXT_PUBLIC_WS_URL: http://localhost:4001
+        NEXT_PUBLIC_ENABLE_DEV_TOOLS: "true"
+        NEXT_PUBLIC_KEYCLOAK_URL: http://localhost:8080
+        NEXT_PUBLIC_KEYCLOAK_REALM: crash-game
+        NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: crash-game-client
+        NEXT_PUBLIC_APP_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    environment:
+      ENABLE_DEV_TOOLS: "true"
+      INTERNAL_GAMES_BASE_URL: http://games:4001
+      INTERNAL_WALLETS_BASE_URL: http://wallets:4002
+      INTERNAL_API_TOKEN: dev-internal-token
+      NEXT_PUBLIC_KEYCLOAK_URL: http://localhost:8080
+      NEXT_PUBLIC_KEYCLOAK_REALM: crash-game
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: crash-game-client
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    depends_on:
+      kong:
+        condition: service_healthy
 
   # ---------------------------------------------------------------------------
-  # Frontend (placeholder — candidate implements)
+  # Seed — populate test wallet for player user
   # ---------------------------------------------------------------------------
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - kong
+  seed-wallets:
+    image: curlimages/curl:8.12.1
+    depends_on:
+      wallets:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - 'curl -sf -X POST http://wallets:4002/internal/dev/fund -H "X-Internal-Token: $$INTERNAL_API_TOKEN" -H "Content-Type: application/json" -d "{\"playerId\":\"player\",\"amountInCents\":\"1000000\"}" && echo "Seed: wallet player funded with R$ 10.000,00"'
+    environment:
+      INTERNAL_API_TOKEN: dev-internal-token
+    restart: "no"
 
 volumes:
   postgres_data:
