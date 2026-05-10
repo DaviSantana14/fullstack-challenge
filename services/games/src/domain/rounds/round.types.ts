@@ -4,6 +4,7 @@ export interface RoundRecord {
   status: "BETTING" | "IN_PROGRESS" | "CRASHED" | "SETTLED" | "CANCELLED";
   serverSeedHash: string;
   serverSeed: string | null;
+  clientSeed: string | null;
   crashPointHundredths: number | null;
   bettingStartsAt: Date;
   bettingClosesAt: Date;

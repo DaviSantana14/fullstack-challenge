@@ -32,7 +32,7 @@ export class CrashCurrentRoundUseCase {
       throw new ConflictException("Round does not have a server seed.");
     }
 
-    const crashPointHundredths = calculateCrashPoint(round.serverSeed);
+    const crashPointHundredths = calculateCrashPoint(round.serverSeed, round.clientSeed);
     const crashedAt = new Date();
     const crashedRound = await this.roundRepository.crashRound(
       round.id,

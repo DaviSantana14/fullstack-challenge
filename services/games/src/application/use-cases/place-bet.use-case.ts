@@ -40,12 +40,20 @@ export class PlaceBetUseCase {
     private readonly gameEvents: GameEventsService,
   ) {}
 
-  async execute(playerId: string, amountInCentsInput: string): Promise<BetRecord> {
+  async execute(
+    playerId: string,
+    amountInCentsInput: string,
+    clientSeed?: string,
+  ): Promise<BetRecord> {
     const amountInCents = this.parseAmountInCents(amountInCentsInput);
     const round = await this.roundRepository.findCurrentBettingRound();
 
     if (!round) {
       throw new ConflictException("No active betting round is accepting bets.");
+    }
+
+    if (clientSeed && !round.clientSeed) {
+      await this.roundRepository.setClientSeed(round.id, clientSeed);
     }
 
     const existingBet = await this.betRepository.findByRoundIdAndPlayerId(

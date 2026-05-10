@@ -25,7 +25,10 @@ export class CreateRoundUseCase {
     }
 
     const roundNumber = await this.roundRepository.getNextRoundNumber();
-    const serverSeed = randomBytes(32).toString("hex");
+    const previous = await this.roundRepository.findLatestCrashedRound();
+    const serverSeed = previous?.serverSeed
+      ? createHash("sha256").update(previous.serverSeed).digest("hex")
+      : randomBytes(32).toString("hex");
     const serverSeedHash = createHash("sha256").update(serverSeed).digest("hex");
     const now = new Date();
     const bettingClosesAt = new Date(

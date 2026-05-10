@@ -39,6 +39,13 @@ export class PrismaRoundRepository implements RoundRepository {
     return Number(result.nextval);
   }
 
+  async findLatestCrashedRound(): Promise<RoundRecord | null> {
+    return this.prisma.round.findFirst({
+      where: { status: "CRASHED" },
+      orderBy: [{ roundNumber: "desc" }],
+    });
+  }
+
   async createBettingRound(input: CreateRoundInput): Promise<RoundRecord> {
     return this.prisma.round.create({
       data: {
@@ -75,6 +82,17 @@ export class PrismaRoundRepository implements RoundRepository {
         crashedAt,
       },
     });
+  }
+
+  async setClientSeed(roundId: string, clientSeed: string): Promise<RoundRecord | null> {
+    try {
+      return await this.prisma.round.update({
+        where: { id: roundId, clientSeed: null },
+        data: { clientSeed },
+      });
+    } catch {
+      return null;
+    }
   }
 
   async findHistory(limit: number): Promise<RoundRecord[]> {

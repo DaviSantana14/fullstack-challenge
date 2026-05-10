@@ -48,7 +48,11 @@ export class BetsController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: PlaceBetRequestDto,
   ): Promise<BetResponseDto> {
-    const bet = await this.placeBetUseCase.execute(user.playerId, body.amountInCents);
+    const bet = await this.placeBetUseCase.execute(
+      user.playerId,
+      body.amountInCents,
+      body.clientSeed,
+    );
 
     return BetResponseDto.fromBet(bet);
   }

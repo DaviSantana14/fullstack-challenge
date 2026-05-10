@@ -14,9 +14,11 @@ export interface RoundRepository {
   findById(roundId: string): Promise<RoundRecord | null>;
   findCurrentBettingRound(): Promise<RoundRecord | null>;
   findCurrentActiveRound(): Promise<RoundRecord | null>;
+  findLatestCrashedRound(): Promise<RoundRecord | null>;
   getNextRoundNumber(): Promise<number>;
   createBettingRound(input: CreateRoundInput): Promise<RoundRecord>;
   startRound(roundId: string, startedAt: Date): Promise<RoundRecord>;
   crashRound(roundId: string, crashPointHundredths: number, crashedAt: Date): Promise<RoundRecord>;
+  setClientSeed(roundId: string, clientSeed: string): Promise<RoundRecord | null>;
   findHistory(limit: number): Promise<RoundRecord[]>;
 }

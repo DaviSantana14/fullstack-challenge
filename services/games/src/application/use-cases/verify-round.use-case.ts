@@ -41,6 +41,7 @@ export class VerifyRoundUseCase {
 
     const calculatedCrashPointHundredths = calculateCrashPoint(
       round.serverSeed,
+      round.clientSeed,
     );
 
     return {

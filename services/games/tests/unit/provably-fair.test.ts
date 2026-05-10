@@ -23,4 +23,29 @@ describe("calculateCrashPoint", () => {
   test("keeps a stable value for a known seed", () => {
     expect(calculateCrashPoint("known-server-seed")).toBe(118);
   });
+
+  test("is deterministic for the same server seed and client seed", () => {
+    const seed = "server";
+    const client = "client";
+
+    expect(calculateCrashPoint(seed, client)).toBe(
+      calculateCrashPoint(seed, client),
+    );
+  });
+
+  test("produces different crash point with different client seed", () => {
+    const seed = "server";
+
+    const withoutClient = calculateCrashPoint(seed);
+    const withClient = calculateCrashPoint(seed, "different-client");
+
+    expect(withoutClient).not.toBe(withClient);
+  });
+
+  test("defaults to crash-game-salt when client seed is absent", () => {
+    const seed = "known-server-seed";
+
+    expect(calculateCrashPoint(seed)).toBe(calculateCrashPoint(seed, null));
+    expect(calculateCrashPoint(seed)).toBe(calculateCrashPoint(seed, undefined));
+  });
 });

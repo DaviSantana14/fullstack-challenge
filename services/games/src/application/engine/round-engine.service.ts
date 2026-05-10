@@ -118,7 +118,7 @@ export class RoundEngineService implements OnModuleInit, OnModuleDestroy {
       throw new ConflictException("Round does not have a startedAt timestamp.");
     }
 
-    const crashPointHundredths = calculateCrashPoint(round.serverSeed);
+    const crashPointHundredths = calculateCrashPoint(round.serverSeed, round.clientSeed);
     const delayMs = getCrashDelayMs(crashPointHundredths, round.startedAt);
 
     const tickIntervalMs = 500;

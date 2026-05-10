@@ -1,8 +1,13 @@
 import { createHmac } from "crypto";
 
-export function calculateCrashPoint(serverSeed: string): number {
+export function calculateCrashPoint(
+  serverSeed: string,
+  clientSeed?: string | null,
+): number {
+  const message = clientSeed || "crash-game-salt";
+
   const hash = createHmac("sha256", serverSeed)
-    .update("crash-game-salt")
+    .update(message)
     .digest("hex");
 
   const seed = parseInt(hash.substring(0, 13), 16);

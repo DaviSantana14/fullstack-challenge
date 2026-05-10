@@ -45,7 +45,7 @@ export class CashoutCurrentBetUseCase {
     if (!round.serverSeed) {
       throw new ConflictException("Round does not have a server seed.");
     }
-    const crashPointHundredths = calculateCrashPoint(round.serverSeed);
+    const crashPointHundredths = calculateCrashPoint(round.serverSeed, round.clientSeed);
     if (cashoutMultiplierHundredths >= crashPointHundredths) {
       throw new ConflictException("The round has already crashed.");
     }
