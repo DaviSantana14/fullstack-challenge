@@ -1,4 +1,16 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from "@nestjs/common";
+import {
+  ApiBadRequestResponse,
+  ApiBody,
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiHeader,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from "@nestjs/swagger";
 import { CreateWalletUseCase } from "../../application/use-cases/create-wallet.use-case";
 import { FundWalletForDevelopmentUseCase } from "../../application/use-cases/fund-wallet-for-development.use-case";
 import { GetMyWalletUseCase } from "../../application/use-cases/get-my-wallet.use-case";
@@ -10,6 +22,7 @@ import { FundWalletRequestDto } from "../dtos/fund-wallet-request.dto";
 import { HealthCheckResponseDto } from "../dtos/health-check-response.dto";
 import { WalletResponseDto } from "../dtos/wallet-response.dto";
 
+@ApiTags("wallets")
 @Controller()
 export class WalletsController {
   constructor(
@@ -19,6 +32,8 @@ export class WalletsController {
   ) {}
 
   @Get("health")
+  @ApiOperation({ summary: "Check wallets service health" })
+  @ApiOkResponse({ type: HealthCheckResponseDto })
   check(): HealthCheckResponseDto {
     return { status: "ok", service: "wallets" };
   }
@@ -26,6 +41,11 @@ export class WalletsController {
   @Post()
   @UseGuards(MvpAuthGuard)
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: "Create a wallet for the current player" })
+  @ApiHeader({ name: "x-player-id", required: true, example: "player-1" })
+  @ApiCreatedResponse({ type: WalletResponseDto })
+  @ApiConflictResponse({ description: "Wallet already exists for this player." })
+  @ApiUnauthorizedResponse({ description: "Missing x-player-id header." })
   async createWallet(
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<WalletResponseDto> {
@@ -36,6 +56,11 @@ export class WalletsController {
 
   @Get("me")
   @UseGuards(MvpAuthGuard)
+  @ApiOperation({ summary: "Get the current player's wallet" })
+  @ApiHeader({ name: "x-player-id", required: true, example: "player-1" })
+  @ApiOkResponse({ type: WalletResponseDto })
+  @ApiNotFoundResponse({ description: "Wallet not found for this player." })
+  @ApiUnauthorizedResponse({ description: "Missing x-player-id header." })
   async getMyWallet(
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<WalletResponseDto> {
@@ -46,6 +71,13 @@ export class WalletsController {
 
   @Post("internal/dev/fund")
   @UseGuards(InternalApiGuard)
+  @ApiOperation({ summary: "Fund a wallet for development and E2E flows" })
+  @ApiHeader({ name: "X-Auth-Token", required: true, example: "dev-internal-token" })
+  @ApiBody({ type: FundWalletRequestDto })
+  @ApiOkResponse({ type: WalletResponseDto })
+  @ApiBadRequestResponse({ description: "Invalid playerId or amountInCents." })
+  @ApiNotFoundResponse({ description: "Wallet not found for this player." })
+  @ApiUnauthorizedResponse({ description: "Invalid internal API token." })
   async fundWalletForDevelopment(
     @Body() body: FundWalletRequestDto,
   ): Promise<WalletResponseDto> {

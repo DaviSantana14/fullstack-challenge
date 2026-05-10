@@ -1,13 +1,24 @@
 import { Body, Controller, Post, UseGuards } from "@nestjs/common";
+import {
+  ApiBadRequestResponse,
+  ApiBody,
+  ApiConflictResponse,
+  ApiHeader,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from "@nestjs/swagger";
 import { CashoutCurrentBetUseCase } from "../../application/use-cases/cashout-current-bet.use-case";
 import { PlaceBetUseCase } from "../../application/use-cases/place-bet.use-case";
 import { CurrentUser } from "../auth/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/authenticated-user.interface";
 import { MvpAuthGuard } from "../auth/mvp-auth.guard";
 import { BetResponseDto } from "../dtos/bet-response.dto";
-import type { CashoutRequestDto } from "../dtos/cashout-request.dto";
-import type { PlaceBetRequestDto } from "../dtos/place-bet-request.dto";
+import { CashoutRequestDto } from "../dtos/cashout-request.dto";
+import { PlaceBetRequestDto } from "../dtos/place-bet-request.dto";
 
+@ApiTags("bet aliases")
 @Controller("bet")
 export class BetAliasController {
   constructor(
@@ -17,6 +28,13 @@ export class BetAliasController {
 
   @Post()
   @UseGuards(MvpAuthGuard)
+  @ApiOperation({ summary: "Place a bet using the README-compatible alias route" })
+  @ApiHeader({ name: "x-player-id", required: true, example: "player-1" })
+  @ApiBody({ type: PlaceBetRequestDto })
+  @ApiOkResponse({ type: BetResponseDto })
+  @ApiBadRequestResponse({ description: "Invalid bet amount." })
+  @ApiConflictResponse({ description: "No active betting round or player already has a bet." })
+  @ApiUnauthorizedResponse({ description: "Missing x-player-id header." })
   async placeBet(
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: PlaceBetRequestDto,
@@ -28,6 +46,12 @@ export class BetAliasController {
 
   @Post("cashout")
   @UseGuards(MvpAuthGuard)
+  @ApiOperation({ summary: "Cash out using the README-compatible alias route" })
+  @ApiHeader({ name: "x-player-id", required: true, example: "player-1" })
+  @ApiBody({ type: CashoutRequestDto })
+  @ApiOkResponse({ type: BetResponseDto })
+  @ApiConflictResponse({ description: "No in-progress round or no accepted current-round bet is available." })
+  @ApiUnauthorizedResponse({ description: "Missing x-player-id header." })
   async cashoutCurrentBet(
     @CurrentUser() user: AuthenticatedUser,
     @Body() _body: CashoutRequestDto,
