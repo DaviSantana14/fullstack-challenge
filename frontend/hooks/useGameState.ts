@@ -265,9 +265,20 @@ function useBettingCountdown(round: Round | null): number | null {
 
 function useMultiplier(round: Round | null): number {
   const [multiplier, setMultiplier] = useState(1.0);
+  const queryClient = useQueryClient();
+
   const calculateMultiplier = useCallback(() => {
     if (!round || round.status !== "IN_PROGRESS" || !round.startedAt) {
       return round?.crashPointHundredths ? round.crashPointHundredths / 100 : 1.0;
+    }
+
+    // Prefer authoritative server value when available
+    const serverHundredths = queryClient.getQueryData<number>([
+      "round",
+      "multiplier",
+    ]);
+    if (serverHundredths !== undefined) {
+      return serverHundredths / 100;
     }
 
     const startedAt = new Date(round.startedAt).getTime();
@@ -277,7 +288,7 @@ function useMultiplier(round: Round | null): number {
     // Formula: e^(0.06 * t), must match server-side getMultiplierHundredths exactly
     const raw = Math.exp(0.06 * elapsedSeconds);
     return Math.max(1.0, Math.floor(raw * 100) / 100);
-  }, [round]);
+  }, [round, queryClient]);
 
   useEffect(() => {
     if (!round || round.status !== "IN_PROGRESS") {

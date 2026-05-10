@@ -80,6 +80,13 @@ export function useWebSocket() {
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
     });
 
+    socket.on(
+      "round:multiplier",
+      (payload: { roundId: string; multiplierHundredths: number }) => {
+        queryClient.setQueryData<number>(["round", "multiplier"], payload.multiplierHundredths);
+      },
+    );
+
     return () => {
       socket.disconnect();
     };

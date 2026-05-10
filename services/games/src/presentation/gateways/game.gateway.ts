@@ -7,7 +7,7 @@ import {
 import type { Server, Socket } from "socket.io";
 import { Injectable } from "@nestjs/common";
 import { GameEventsService } from "../../application/events/game-events.service";
-import type { RoundStateEvent, BetPlacedEvent, BetCashedOutEvent } from "../../application/events/game-events.service";
+import type { RoundStateEvent, BetPlacedEvent, BetCashedOutEvent, MultiplierTickEvent } from "../../application/events/game-events.service";
 import type { BetRecord } from "../../domain/bets/bet.types";
 
 @Injectable()
@@ -47,6 +47,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.unsubscribers.push(
       this.gameEvents.on<BetCashedOutEvent>("bet:cashed_out", (payload) => {
         this.server.emit("bet:cashed_out", this.serializeBet(payload.bet));
+      }),
+    );
+    this.unsubscribers.push(
+      this.gameEvents.on<MultiplierTickEvent>("round:multiplier", (payload) => {
+        this.server.emit("round:multiplier", payload);
       }),
     );
   }

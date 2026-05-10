@@ -6,12 +6,14 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from "@nestjs/common";
+import { getMultiplierHundredths } from "../../domain/multiplier/multiplier.service";
 import { calculateCrashPoint } from "../../domain/provably-fair/provably-fair.service";
 import {
   ROUND_REPOSITORY,
   type RoundRepository,
 } from "../../domain/rounds/round.repository";
 import type { RoundRecord } from "../../domain/rounds/round.types";
+import { GameEventsService } from "../events/game-events.service";
 import { CrashCurrentRoundUseCase } from "../use-cases/crash-current-round.use-case";
 import { CreateRoundUseCase } from "../use-cases/create-round.use-case";
 import { StartCurrentRoundUseCase } from "../use-cases/start-current-round.use-case";
@@ -32,6 +34,7 @@ export class RoundEngineService implements OnModuleInit, OnModuleDestroy {
     private readonly createRoundUseCase: CreateRoundUseCase,
     private readonly startCurrentRoundUseCase: StartCurrentRoundUseCase,
     private readonly crashCurrentRoundUseCase: CrashCurrentRoundUseCase,
+    private readonly gameEvents: GameEventsService,
   ) {}
 
   onModuleInit(): void {
@@ -111,11 +114,37 @@ export class RoundEngineService implements OnModuleInit, OnModuleDestroy {
     if (!round.serverSeed) {
       throw new ConflictException("Round does not have a server seed.");
     }
+    if (!round.startedAt) {
+      throw new ConflictException("Round does not have a startedAt timestamp.");
+    }
 
     const crashPointHundredths = calculateCrashPoint(round.serverSeed);
     const delayMs = getCrashDelayMs(crashPointHundredths, round.startedAt);
 
-    await this.sleep(delayMs);
+    const tickIntervalMs = 500;
+    let elapsed = 0;
+
+    while (elapsed < delayMs && !this.isStopped) {
+      const waitMs = Math.min(tickIntervalMs, delayMs - elapsed);
+      await this.sleep(waitMs);
+      elapsed += waitMs;
+
+      if (this.isStopped) {
+        break;
+      }
+
+      const multiplierHundredths = getMultiplierHundredths(
+        Date.now() - round.startedAt.getTime(),
+      );
+
+      if (multiplierHundredths < crashPointHundredths) {
+        this.gameEvents.emit("round:multiplier", {
+          roundId: round.id,
+          multiplierHundredths,
+          serverTime: new Date().toISOString(),
+        });
+      }
+    }
 
     if (this.isStopped) {
       return;

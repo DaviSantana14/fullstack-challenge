@@ -15,6 +15,12 @@ export interface BetCashedOutEvent {
   bet: BetRecord;
 }
 
+export interface MultiplierTickEvent {
+  roundId: string;
+  multiplierHundredths: number;
+  serverTime: string;
+}
+
 @Injectable()
 export class GameEventsService {
   private listeners: Map<string, Set<(payload: unknown) => void>> = new Map();
