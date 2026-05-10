@@ -64,7 +64,14 @@ function useWallet(isConnected: boolean) {
 function useRoundHistory(isConnected: boolean) {
   return useQuery({
     queryKey: ["rounds", "history"],
-    queryFn: () => apiGet<RoundHistoryItem[]>("/games/rounds/history"),
+    queryFn: async () => {
+      const response = await apiGet<{
+        items: RoundHistoryItem[];
+        nextCursor: string | null;
+      }>("/games/rounds/history");
+
+      return response.items;
+    },
     refetchInterval: isConnected ? false : 10000,
     staleTime: isConnected ? 30000 : 0,
   });

@@ -1,10 +1,18 @@
-import { Controller, Get, Param } from "@nestjs/common";
-import { ApiNotFoundResponse, ApiOkResponse, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
+import { Controller, Get, Param, Query } from "@nestjs/common";
+import {
+  ApiBadRequestResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiTags,
+} from "@nestjs/swagger";
 import { GetCurrentRoundUseCase } from "../../application/use-cases/get-current-round.use-case";
 import { GetRoundHistoryUseCase } from "../../application/use-cases/get-round-history.use-case";
 import { VerifyRoundUseCase } from "../../application/use-cases/verify-round.use-case";
 import { CurrentRoundResponseDto } from "../dtos/current-round-response.dto";
-import { RoundHistoryResponseDto } from "../dtos/round-history-response.dto";
+import { PaginatedRoundHistoryResponseDto } from "../dtos/round-history-response.dto";
 import { RoundResponseOrNullDto } from "../dtos/round-response-or-null.dto";
 import { VerifyRoundResponseDto } from "../dtos/verify-round-response.dto";
 
@@ -27,12 +35,18 @@ export class RoundsController {
   }
 
   @Get("history")
-  @ApiOperation({ summary: "Get recent round history" })
-  @ApiOkResponse({ type: [RoundHistoryResponseDto] })
-  async getRoundHistory(): Promise<RoundHistoryResponseDto[]> {
-    const rounds = await this.getRoundHistoryUseCase.execute(20);
+  @ApiOperation({ summary: "Get paginated round history" })
+  @ApiQuery({ name: "limit", required: false, example: 20, description: "Default 20, maximum 50." })
+  @ApiQuery({ name: "cursor", required: false, example: "eyJyb3VuZE51bWJlciI6NDJ9" })
+  @ApiOkResponse({ type: PaginatedRoundHistoryResponseDto })
+  @ApiBadRequestResponse({ description: "Invalid limit or cursor." })
+  async getRoundHistory(
+    @Query("limit") limit?: string,
+    @Query("cursor") cursor?: string,
+  ): Promise<PaginatedRoundHistoryResponseDto> {
+    const result = await this.getRoundHistoryUseCase.execute({ limit, cursor });
 
-    return rounds.map(RoundHistoryResponseDto.fromRound);
+    return PaginatedRoundHistoryResponseDto.fromResult(result);
   }
 
   @Get(":roundId/verify")

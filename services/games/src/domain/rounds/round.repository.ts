@@ -10,6 +10,20 @@ export interface CreateRoundInput {
   bettingClosesAt: Date;
 }
 
+export interface RoundPaginationCursor {
+  roundNumber: number;
+}
+
+export interface FindRoundHistoryPageInput {
+  limit: number;
+  cursor?: RoundPaginationCursor;
+}
+
+export interface FindRoundHistoryPageResult {
+  items: RoundRecord[];
+  hasNextPage: boolean;
+}
+
 export interface RoundRepository {
   findById(roundId: string): Promise<RoundRecord | null>;
   findCurrentBettingRound(): Promise<RoundRecord | null>;
@@ -20,5 +34,5 @@ export interface RoundRepository {
   startRound(roundId: string, startedAt: Date): Promise<RoundRecord>;
   crashRound(roundId: string, crashPointHundredths: number, crashedAt: Date): Promise<RoundRecord>;
   setClientSeed(roundId: string, clientSeed: string): Promise<RoundRecord | null>;
-  findHistory(limit: number): Promise<RoundRecord[]>;
+  findHistoryPage(input: FindRoundHistoryPageInput): Promise<FindRoundHistoryPageResult>;
 }

@@ -27,3 +27,21 @@ export class RoundHistoryResponseDto {
     };
   }
 }
+
+export class PaginatedRoundHistoryResponseDto {
+  @ApiProperty({ type: [RoundHistoryResponseDto] })
+  items: RoundHistoryResponseDto[];
+
+  @ApiPropertyOptional({ example: "eyJyb3VuZE51bWJlciI6NDJ9", nullable: true })
+  nextCursor: string | null;
+
+  static fromResult(input: {
+    items: RoundRecord[];
+    nextCursor: string | null;
+  }): PaginatedRoundHistoryResponseDto {
+    return {
+      items: input.items.map(RoundHistoryResponseDto.fromRound),
+      nextCursor: input.nextCursor,
+    };
+  }
+}

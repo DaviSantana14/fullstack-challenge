@@ -188,7 +188,7 @@ services:
     command: >
       sh -c "
         curl -sf -X POST http://wallets:4002/internal/dev/fund
-        -H 'X-Internal-Token: $INTERNAL_API_TOKEN'
+        -H 'X-Internal-Token: $$INTERNAL_API_TOKEN'
         -H 'Content-Type: application/json'
         -d '{\"playerId\":\"player\",\"amountInCents\":\"1000000\"}'
         && echo 'Seed: wallet player funded with R$ 10.000,00'

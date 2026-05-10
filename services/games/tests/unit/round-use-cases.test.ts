@@ -11,6 +11,7 @@ import { CrashCurrentRoundUseCase } from "../../src/application/use-cases/crash-
 import { VerifyRoundUseCase } from "../../src/application/use-cases/verify-round.use-case";
 import { GetCurrentRoundBetsUseCase } from "../../src/application/use-cases/get-current-round-bets.use-case";
 import { GetMyBetsUseCase } from "../../src/application/use-cases/get-my-bets.use-case";
+import { GetRoundHistoryUseCase } from "../../src/application/use-cases/get-round-history.use-case";
 import type { GameEventsService } from "../../src/application/events/game-events.service";
 
 const baseDate = new Date("2026-05-09T12:00:00.000Z");
@@ -65,7 +66,7 @@ function makeRoundRepository(
       }),
     ),
     setClientSeed: mock(async () => null),
-    findHistory: mock(async () => []),
+    findHistoryPage: mock(async () => ({ items: [], hasNextPage: false })),
     ...overrides,
   } as RoundRepository;
 }
@@ -283,6 +284,90 @@ describe("round use cases", () => {
 
       await expect(useCase.execute()).resolves.toBe(bets);
       expect(betRepository.findByRoundId).toHaveBeenCalledWith(round.id);
+    });
+  });
+
+  describe("GetRoundHistoryUseCase", () => {
+    const crashedRound = makeRound({
+      id: "round-42",
+      roundNumber: 42,
+      status: "CRASHED",
+      crashPointHundredths: 213,
+      crashedAt: baseDate,
+    });
+
+    test("returns the first page with default limit", async () => {
+      const repository = makeRoundRepository({
+        findHistoryPage: mock(async () => ({
+          items: [crashedRound],
+          hasNextPage: false,
+        })),
+      });
+      const useCase = new GetRoundHistoryUseCase(repository);
+
+      await expect(useCase.execute()).resolves.toEqual({
+        items: [crashedRound],
+        nextCursor: null,
+      });
+      expect(repository.findHistoryPage).toHaveBeenCalledWith({
+        limit: 20,
+        cursor: undefined,
+      });
+    });
+
+    test("clamps the limit and returns a next cursor when more items exist", async () => {
+      const repository = makeRoundRepository({
+        findHistoryPage: mock(async () => ({
+          items: [crashedRound],
+          hasNextPage: true,
+        })),
+      });
+      const useCase = new GetRoundHistoryUseCase(repository);
+
+      const result = await useCase.execute({ limit: "999" });
+
+      expect(result.items).toEqual([crashedRound]);
+      expect(typeof result.nextCursor).toBe("string");
+      expect(repository.findHistoryPage).toHaveBeenCalledWith({
+        limit: 50,
+        cursor: undefined,
+      });
+    });
+
+    test("decodes and passes a valid cursor", async () => {
+      const cursor = Buffer.from(
+        JSON.stringify({
+          roundNumber: 42,
+        }),
+        "utf8",
+      ).toString("base64url");
+      const repository = makeRoundRepository();
+      const useCase = new GetRoundHistoryUseCase(repository);
+
+      await useCase.execute({ limit: "10", cursor });
+
+      expect(repository.findHistoryPage).toHaveBeenCalledWith({
+        limit: 10,
+        cursor: {
+          roundNumber: 42,
+        },
+      });
+    });
+
+    test("rejects an invalid cursor", async () => {
+      const useCase = new GetRoundHistoryUseCase(makeRoundRepository());
+
+      await expect(useCase.execute({ cursor: "not-base64" })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    test("rejects an invalid limit", async () => {
+      const useCase = new GetRoundHistoryUseCase(makeRoundRepository());
+
+      await expect(useCase.execute({ limit: "0" })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
     });
   });
 

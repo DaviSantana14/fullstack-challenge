@@ -1,5 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import type { CreateRoundInput, RoundRepository } from "../../domain/rounds/round.repository";
+import type {
+  CreateRoundInput,
+  FindRoundHistoryPageInput,
+  FindRoundHistoryPageResult,
+  RoundRepository,
+} from "../../domain/rounds/round.repository";
 import type { RoundRecord } from "../../domain/rounds/round.types";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -95,11 +100,19 @@ export class PrismaRoundRepository implements RoundRepository {
     }
   }
 
-  async findHistory(limit: number): Promise<RoundRecord[]> {
-    return this.prisma.round.findMany({
-      where: { status: "CRASHED" },
+  async findHistoryPage(input: FindRoundHistoryPageInput): Promise<FindRoundHistoryPageResult> {
+    const rounds = await this.prisma.round.findMany({
+      where: {
+        status: "CRASHED",
+        ...(input.cursor ? { roundNumber: { lt: input.cursor.roundNumber } } : {}),
+      },
       orderBy: [{ roundNumber: "desc" }],
-      take: limit,
+      take: input.limit + 1,
     });
+
+    return {
+      items: rounds.slice(0, input.limit),
+      hasNextPage: rounds.length > input.limit,
+    };
   }
 }

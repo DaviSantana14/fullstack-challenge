@@ -207,8 +207,11 @@ async function createKeycloakUser(username: string, password: string): Promise<v
     body: JSON.stringify({
       username,
       email: `${username}@e2e.crash-game.dev`,
+      firstName: "E2E",
+      lastName: "Player",
       enabled: true,
       emailVerified: true,
+      requiredActions: [],
       credentials: [
         {
           type: "password",

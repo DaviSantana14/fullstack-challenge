@@ -115,8 +115,11 @@ async function createKeycloakUser(username: string, password: string): Promise<v
     body: JSON.stringify({
       username,
       email: `${username}@e2e.crash-game.dev`,
+      firstName: "E2E",
+      lastName: "Player",
       enabled: true,
       emailVerified: true,
+      requiredActions: [],
       credentials: [
         {
           type: "password",
@@ -266,10 +269,10 @@ describe("wallet E2E", () => {
     expect(fetched.balanceInCents).toBe("50000");
   }, 10_000);
 
-  test("rejects funding a non-existent wallet", async () => {
+  test("auto-creates a wallet when funding a player without one", async () => {
     const auth = await createPlayer();
 
-    await requestJson(
+    const funded = await requestJson<WalletResponse>(
       "POST",
       `${WALLETS_URL}/internal/dev/fund`,
       {
@@ -278,8 +281,17 @@ describe("wallet E2E", () => {
           amountInCents: "10000",
         },
         headers: internalHeaders(),
-        expectedStatus: 404,
+        expectedStatus: 201,
       },
     );
+
+    expect(funded.playerId).toBe(auth.playerId);
+    expect(funded.balanceInCents).toBe("10000");
+
+    const fetched = await requestJson<WalletResponse>("GET", `${KONG_URL}/wallets/me`, {
+      headers: authHeaders(auth),
+    });
+
+    expect(fetched.balanceInCents).toBe("10000");
   }, 10_000);
 });

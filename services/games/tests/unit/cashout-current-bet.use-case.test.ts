@@ -23,6 +23,7 @@ function makeRound(overrides: Partial<RoundRecord> = {}): RoundRecord {
     status: "IN_PROGRESS",
     serverSeedHash: "hash",
     serverSeed: "seed",
+    clientSeed: null,
     crashPointHundredths: null,
     bettingStartsAt: new Date(startedAt.getTime() - 10_000),
     bettingClosesAt: startedAt,
@@ -68,7 +69,8 @@ function makeRoundRepository(
     createBettingRound: mock(),
     startRound: mock(),
     crashRound: mock(),
-    findHistory: mock(async () => []),
+    setClientSeed: mock(async () => null),
+    findHistoryPage: mock(async () => ({ items: [], hasNextPage: false })),
     ...overrides,
   } as RoundRepository;
 }
